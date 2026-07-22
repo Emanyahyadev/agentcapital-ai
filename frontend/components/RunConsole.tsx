@@ -121,7 +121,7 @@ export function BriefingPanel({
   if (!run || (!run.report && run.timeline.length === 0)) return null;
 
   function downloadMarkdown() {
-    if (!run?.report) return;
+    if (!run || !run.report) return;
     const blob = new Blob([run.report.markdown], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -133,7 +133,7 @@ export function BriefingPanel({
 
   function printReport() {
     const node = reportRef.current;
-    if (!node) return;
+    if (!node || !run) return;
     const w = window.open("", "_blank", "width=820,height=940");
     if (!w) return;
     w.document.write(`<!doctype html><html><head><title>Polaris — Intelligence Briefing</title>
