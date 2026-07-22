@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, API_BASE, Metrics, RunDetail, RunSummary, Sample } from "@/lib/api";
 import MetricsStrip from "@/components/MetricsStrip";
-import { ActivityCard, BriefingPanel, GatePanel, InspectRow } from "@/components/RunConsole";
-import { currentStage } from "@/lib/pipeline";
+import { BriefingPanel, ExecutionPanel } from "@/components/RunConsole";
 
 const TERMINAL = new Set(["completed", "failed", "rejected"]);
 
@@ -15,7 +14,6 @@ export default function Home() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<RunDetail | null>(null);
-  const [picked, setPicked] = useState<string | null>(null);
   const [starting, setStarting] = useState<string | null>(null);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
@@ -114,102 +112,97 @@ export default function Home() {
     refreshDetail();
     refreshRuns();
   };
-  const inspecting = picked ?? currentStage(detail);
 
   return (
     <>
       {err && <div className="error-box" style={{ marginBottom: 18 }}>{err}</div>}
 
+      {/* ── Overview ─────────────────────────────────────────── */}
+      <div className="section">Overview</div>
       <MetricsStrip metrics={metrics} nav={nav} />
 
-      {/* Live agents on the left, controls on the right — process and watch together. */}
-      <div className="layout">
-        <div>
-          <ActivityCard run={detail} inspecting={inspecting} onSelect={setPicked} />
-          <GatePanel run={detail} onChanged={onChanged} />
-        </div>
-
-        <div>
-          <div className="card">
-            <h2>
-              Inbox<span className="hint">click to process</span>
-            </h2>
-            {samples.length === 0 && (
-              <div className="empty">No samples — run scripts/generate_pdfs.py</div>
-            )}
-            {samples.map((s) => (
-              <div
-                className="row"
-                key={s.name}
-                onClick={() => !starting && startRun(s.storage_path)}
-              >
-                <div className="name">{s.name}</div>
-                <button className="btn small" disabled={starting !== null}>
-                  {starting === s.storage_path ? "Starting…" : "Process"}
-                </button>
-              </div>
-            ))}
-            <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 12 }}>
-              <input type="file" ref={fileRef} accept="application/pdf" />
-              <button className="btn secondary small" onClick={upload}>
-                Upload &amp; run
+      {/* ── Documents & runs (start work) ────────────────────── */}
+      <div className="section">Documents &amp; runs</div>
+      <div className="cols-even">
+        <div className="card">
+          <h2>
+            Inbox<span className="hint">click a notice to process</span>
+          </h2>
+          {samples.length === 0 && (
+            <div className="empty">No samples — run scripts/generate_pdfs.py</div>
+          )}
+          {samples.map((s) => (
+            <div
+              className="row"
+              key={s.name}
+              onClick={() => !starting && startRun(s.storage_path)}
+            >
+              <div className="name">{s.name}</div>
+              <button className="btn small" disabled={starting !== null}>
+                {starting === s.storage_path ? "Starting…" : "Process"}
               </button>
             </div>
+          ))}
+          <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 12 }}>
+            <input type="file" ref={fileRef} accept="application/pdf" />
+            <button className="btn secondary small" onClick={upload}>
+              Upload &amp; run
+            </button>
           </div>
+        </div>
 
-          <div className="card">
-            <h2>
-              Workflow runs<span className="hint">click to inspect</span>
-              <button
-                className="btn secondary small"
-                style={{ marginLeft: "auto" }}
-                title="Clear processed documents & runs so demo scenarios can be re-run"
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  if (!window.confirm("Reset demo data? All runs, documents and reports will be cleared."))
-                    return;
-                  await api("/demo/reset", { method: "POST" });
-                  setSelectedId(null);
-                  setDetail(null);
-                  setPicked(null);
-                  await refreshRuns();
-                }}
-              >
-                Reset demo
-              </button>
-            </h2>
-            {runs.length === 0 && (
-              <div className="empty">No runs yet — process a notice from the inbox.</div>
-            )}
-            {runs.map((r) => (
-              <div
-                className={`row ${r.run_id === selectedId ? "selected" : ""}`}
-                key={r.run_id}
-                onClick={() => {
-                  setSelectedId(r.run_id);
-                  setDetail(null);
-                  setPicked(null);
-                }}
-              >
-                <div>
-                  <div className="name">
-                    {r.document?.split(/[\\/]/).pop() ?? r.run_id.slice(0, 8)}
-                  </div>
-                  <div className="meta">
-                    {r.current_node ?? "—"} · {new Date(r.started_at).toLocaleTimeString()}
-                  </div>
+        <div className="card">
+          <h2>
+            Workflow runs<span className="hint">click to inspect</span>
+            <button
+              className="btn secondary small"
+              style={{ marginLeft: "auto" }}
+              title="Clear processed documents & runs so demo scenarios can be re-run"
+              onClick={async (e) => {
+                e.stopPropagation();
+                if (!window.confirm("Reset demo data? All runs, documents and reports will be cleared."))
+                  return;
+                await api("/demo/reset", { method: "POST" });
+                setSelectedId(null);
+                setDetail(null);
+                await refreshRuns();
+              }}
+            >
+              Reset demo
+            </button>
+          </h2>
+          {runs.length === 0 && (
+            <div className="empty">No runs yet — process a notice from the inbox.</div>
+          )}
+          {runs.map((r) => (
+            <div
+              className={`row ${r.run_id === selectedId ? "selected" : ""}`}
+              key={r.run_id}
+              onClick={() => {
+                setSelectedId(r.run_id);
+                setDetail(null);
+              }}
+            >
+              <div>
+                <div className="name">
+                  {r.document?.split(/[\\/]/).pop() ?? r.run_id.slice(0, 8)}
                 </div>
-                <span className={`chip ${r.status}`}>{r.status.replace("_", " ")}</span>
+                <div className="meta">
+                  {r.current_node ?? "—"} · {new Date(r.started_at).toLocaleTimeString()}
+                </div>
               </div>
-            ))}
-          </div>
+              <span className={`chip ${r.status}`}>{r.status.replace("_", " ")}</span>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Deep dive: real orchestration graph + per-agent inspector. */}
-      <InspectRow run={detail} inspecting={inspecting} onSelect={setPicked} />
+      {/* ── Multi-agent execution (graph + live rail + gate + inspector) ── */}
+      <div className="section">Multi-agent execution</div>
+      <ExecutionPanel run={detail} onChanged={onChanged} />
 
-      {/* Report faces the question box. */}
+      {/* ── Intelligence (briefing + ask) ────────────────────── */}
+      <div className="section">Intelligence</div>
       <div className="grid2">
         <BriefingPanel run={detail} />
         <div className="card">

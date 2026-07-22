@@ -1,51 +1,16 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { api, RunDetail } from "@/lib/api";
 import AgentDrawer from "@/components/AgentDrawer";
 import AgentRail from "@/components/AgentRail";
 import GraphView from "@/components/GraphView";
+import { currentStage } from "@/lib/pipeline";
 
-/** Live agent activity: every agent inline, the running one ticking each
- *  second — no clicking needed to see what's happening. */
-export function ActivityCard({
-  run,
-  inspecting,
-  onSelect,
-}: {
-  run: RunDetail | null;
-  inspecting: string | null;
-  onSelect: (key: string) => void;
-}) {
-  return (
-    <div className="card">
-      <h2>
-        Agent activity
-        {run ? (
-          <>
-            <span className="hint">live · updates every second</span>
-            <span className={`chip ${run.status}`} style={{ marginLeft: "auto" }}>
-              {run.status.replace("_", " ")}
-            </span>
-          </>
-        ) : (
-          <span className="hint">process a notice to watch the agents work</span>
-        )}
-      </h2>
-      <AgentRail run={run} selected={inspecting} onSelect={onSelect} />
-      {run?.error && (
-        <div className="error-box" style={{ marginTop: 14 }}>
-          <b>{run.error.agent ?? "error"}:</b> {run.error.message}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** The human-in-the-loop approval card; renders nothing unless a run is
- *  parked at a gate. */
-export function GatePanel({
+/** Human-in-the-loop approval card; renders nothing unless a run is parked
+ *  at a gate. */
+function GatePanel({
   run,
   onChanged,
 }: {
@@ -119,28 +84,65 @@ export function GatePanel({
   );
 }
 
-/** Optional deep dive: the real orchestration graph beside a per-agent
- *  inspector (duration, tokens, confidence, activity). */
-export function InspectRow({
+/** The whole multi-agent execution view in one place: the real LangGraph
+ *  topology and the live per-agent timeline side by side (two views of one
+ *  run, synced by selection), the human gate when parked, and the per-agent
+ *  inspector. */
+export function ExecutionPanel({
   run,
-  inspecting,
-  onSelect,
+  onChanged,
 }: {
   run: RunDetail | null;
-  inspecting: string | null;
-  onSelect: (key: string) => void;
+  onChanged: () => void;
 }) {
+  const [picked, setPicked] = useState<string | null>(null);
+  const runId = run?.run_id;
+  useEffect(() => setPicked(null), [runId]); // reset selection when run changes
+  const inspecting = picked ?? currentStage(run);
+
   return (
-    <div className="grid2">
+    <>
       <div className="card">
         <h2>
-          Orchestration graph
-          <span className="hint">real LangGraph topology · click a node</span>
+          Agent activity
+          {run ? (
+            <>
+              <span className="hint">live · updates every second</span>
+              <span className={`chip ${run.status}`} style={{ marginLeft: "auto" }}>
+                {run.status.replace("_", " ")}
+              </span>
+            </>
+          ) : (
+            <span className="hint">process a notice to watch the agents work</span>
+          )}
         </h2>
-        <GraphView run={run} selected={inspecting} onSelect={onSelect} />
+
+        <div className="exec-grid">
+          <div className="exec-col">
+            <div className="exec-sub">
+              Orchestration graph<span className="hint">LangGraph topology · click a node</span>
+            </div>
+            <GraphView run={run} selected={inspecting} onSelect={setPicked} />
+          </div>
+          <div className="exec-col">
+            <div className="exec-sub">
+              Execution timeline<span className="hint">live duration &amp; tokens per agent</span>
+            </div>
+            <AgentRail run={run} selected={inspecting} onSelect={setPicked} />
+          </div>
+        </div>
+
+        {run?.error && (
+          <div className="error-box" style={{ marginTop: 14 }}>
+            <b>{run.error.agent ?? "error"}:</b> {run.error.message}
+          </div>
+        )}
       </div>
+
+      <GatePanel run={run} onChanged={onChanged} />
+
       <AgentDrawer run={run} stageKey={inspecting} />
-    </div>
+    </>
   );
 }
 
