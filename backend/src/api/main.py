@@ -294,8 +294,8 @@ def ask(body: Question) -> dict:
     return {"answer": answer, "sources": chunks}
 
 
-# Public Gemini 2.5 Flash list pricing (USD per 1M tokens) — used only to
-# turn REAL captured token counts into an indicative cost, never invented.
+# Public Gemini Flash list pricing (USD per 1M tokens) — used only to turn
+# REAL captured token counts into an indicative cost, never invented.
 _PRICE_INPUT_PER_M = 0.30
 _PRICE_OUTPUT_PER_M = 2.50
 

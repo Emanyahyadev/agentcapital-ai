@@ -1,13 +1,28 @@
 """LLM factory. Temperature 0 everywhere — extraction and reporting want
 determinism, not creativity. Flash-Lite handles cheap steps to stay inside
 the free tier's rate limits. Every call records its token usage through the
-telemetry meter so per-agent token counts are real, not estimated."""
+telemetry meter so per-agent token counts are real, not estimated.
+
+Model fallback: the primary model (Flash) and Flash-Lite have *separate*
+free-tier quotas. When the primary returns a rate-limit / quota error, the
+call transparently retries once on Flash-Lite rather than failing the run —
+the "fall back when the primary is unavailable" pattern, at the model layer.
+"""
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel
 
 from src.config.settings import get_settings
 from src.core.telemetry import record_tokens
+from src.observability.logger import get_logger
+
+log = get_logger(component="llm")
+
+_RATE_MARKERS = ("429", "resource_exhausted", "resourceexhausted", "quota", "rate limit")
+
+
+def is_rate_limited(exc: Exception) -> bool:
+    return any(m in f"{exc}".lower() for m in _RATE_MARKERS)
 
 
 def chat_model(lite: bool = False) -> ChatGoogleGenerativeAI:
@@ -26,19 +41,39 @@ def _record(message) -> None:
         record_tokens(usage.get("input_tokens"), usage.get("output_tokens"))
 
 
+def _with_fallback(call, lite: bool):
+    """Run `call(lite)`; on a rate-limit error from the primary model, retry
+    once on Flash-Lite (separate quota). Re-raise anything else."""
+    try:
+        return call(lite)
+    except Exception as exc:  # noqa: BLE001 — inspect, then re-raise or fall back
+        if lite or not is_rate_limited(exc):
+            raise
+        log.warning("llm_rate_limited_falling_back_to_lite", error=str(exc)[:120])
+        return call(True)
+
+
 def extract_structured[M: BaseModel](
     model_cls: type[M], system: str, user: str, lite: bool = False
 ) -> M:
     """One-shot structured extraction; output arrives already schema-validated.
     include_raw keeps the underlying AIMessage so token usage is captured."""
-    llm = chat_model(lite=lite).with_structured_output(model_cls, include_raw=True)
-    result = llm.invoke([("system", system), ("human", user)])
-    _record(result.get("raw"))
-    return result["parsed"]  # type: ignore[return-value]
+
+    def call(use_lite: bool) -> M:
+        llm = chat_model(lite=use_lite).with_structured_output(model_cls, include_raw=True)
+        result = llm.invoke([("system", system), ("human", user)])
+        _record(result.get("raw"))
+        return result["parsed"]  # type: ignore[return-value]
+
+    return _with_fallback(call, lite)
 
 
 def invoke_text(messages: list, lite: bool = False) -> str:
     """Free-form completion that records token usage and returns plain text."""
-    response = chat_model(lite=lite).invoke(messages)
-    _record(response)
-    return response.content if isinstance(response.content, str) else str(response.content)
+
+    def call(use_lite: bool) -> str:
+        response = chat_model(lite=use_lite).invoke(messages)
+        _record(response)
+        return response.content if isinstance(response.content, str) else str(response.content)
+
+    return _with_fallback(call, lite)

@@ -17,8 +17,11 @@ class Settings(BaseSettings):
 
     # LLM
     google_api_key: str = ""
-    llm_model: str = "gemini-2.5-flash"
-    llm_model_lite: str = "gemini-2.5-flash-lite"
+    # "-latest" aliases track the current stable Flash models and keep working
+    # as specific dated versions are retired; the two draw on separate quotas,
+    # which is what makes the rate-limit fallback in core/llm.py effective.
+    llm_model: str = "gemini-flash-latest"
+    llm_model_lite: str = "gemini-flash-lite-latest"
     embedding_model: str = "gemini-embedding-001"
     embedding_dim: int = 768
 
