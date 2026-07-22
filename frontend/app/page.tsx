@@ -1,12 +1,17 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, API_BASE, RunSummary, Sample } from "@/lib/api";
+import { api, API_BASE, RunDetail, RunSummary, Sample } from "@/lib/api";
+import RunConsole from "@/components/RunConsole";
+
+const TERMINAL = new Set(["completed", "failed", "rejected"]);
 
 export default function Home() {
   const [samples, setSamples] = useState<Sample[]>([]);
   const [runs, setRuns] = useState<RunSummary[]>([]);
+  const [nav, setNav] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<RunDetail | null>(null);
   const [starting, setStarting] = useState<string | null>(null);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
@@ -14,30 +19,55 @@ export default function Home() {
   const [err, setErr] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const refresh = useCallback(async () => {
+  const refreshRuns = useCallback(async () => {
     try {
-      setRuns(await api<RunSummary[]>("/runs"));
+      const list = await api<RunSummary[]>("/runs");
+      setRuns(list);
       setErr(null);
+      setSelectedId((cur) => cur ?? list[0]?.run_id ?? null);
     } catch (e) {
-      setErr(String(e));
+      setErr(`Backend unreachable: ${e}`);
     }
   }, []);
 
+  const refreshDetail = useCallback(async () => {
+    if (!selectedId) return;
+    try {
+      setDetail(await api<RunDetail>(`/runs/${selectedId}`));
+    } catch {
+      /* keep last snapshot */
+    }
+  }, [selectedId]);
+
   useEffect(() => {
     api<Sample[]>("/documents/samples").then(setSamples).catch(() => {});
-    refresh();
-    const t = setInterval(refresh, 4000);
+    api<{ position_value_usd: number }[]>("/custodian/feed")
+      .then((rows) => setNav(rows.reduce((s, r) => s + r.position_value_usd, 0)))
+      .catch(() => {});
+    refreshRuns();
+    const t = setInterval(refreshRuns, 5000);
     return () => clearInterval(t);
-  }, [refresh]);
+  }, [refreshRuns]);
+
+  useEffect(() => {
+    refreshDetail();
+    const t = setInterval(() => {
+      if (detail && TERMINAL.has(detail.status) && detail.run_id === selectedId) return;
+      refreshDetail();
+    }, 2500);
+    return () => clearInterval(t);
+  }, [refreshDetail, selectedId, detail]);
 
   async function startRun(storage_path: string) {
     setStarting(storage_path);
     try {
-      await api("/runs", {
+      const res = await api<{ run_id: string }>("/runs", {
         method: "POST",
         body: JSON.stringify({ storage_path }),
       });
-      await refresh();
+      setSelectedId(res.run_id);
+      setDetail(null);
+      await refreshRuns();
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -50,14 +80,8 @@ export default function Home() {
     if (!file) return;
     const form = new FormData();
     form.append("file", file);
-    const res = await fetch(`${API_BASE}/documents/upload`, {
-      method: "POST",
-      body: form,
-    });
-    if (!res.ok) {
-      setErr(await res.text());
-      return;
-    }
+    const res = await fetch(`${API_BASE}/documents/upload`, { method: "POST", body: form });
+    if (!res.ok) return setErr(await res.text());
     const { storage_path } = await res.json();
     await startRun(storage_path);
   }
@@ -79,9 +103,42 @@ export default function Home() {
     }
   }
 
+  const completed = runs.filter((r) => r.status === "completed").length;
+  const awaiting = runs.filter((r) => r.status === "awaiting_approval").length;
+
   return (
     <>
       {err && <div className="error-box" style={{ marginBottom: 18 }}>{err}</div>}
+
+      <div className="stats">
+        <div className="stat">
+          <div className="k">Portfolio NAV</div>
+          <div className="v">{nav === null ? "—" : `$${(nav / 1e6).toFixed(1)}M`}</div>
+        </div>
+        <div className="stat">
+          <div className="k">Runs completed</div>
+          <div className="v">{completed}</div>
+        </div>
+        <div className="stat">
+          <div className="k">Awaiting approval</div>
+          <div className="v" style={awaiting ? { color: "var(--warn)" } : undefined}>
+            {awaiting}
+          </div>
+        </div>
+        <div className="stat">
+          <div className="k">Agents</div>
+          <div className="v">6 + 2 gates</div>
+        </div>
+      </div>
+
+      <RunConsole
+        run={detail}
+        onChanged={() => {
+          refreshDetail();
+          refreshRuns();
+        }}
+      />
+
       <div className="grid">
         <div>
           <div className="card">
@@ -89,25 +146,29 @@ export default function Home() {
               Inbox<span className="hint">synthetic notices — click to process</span>
             </h2>
             {samples.length === 0 && (
-              <p className="muted">
-                No samples found — run <code>scripts/generate_pdfs.py</code> on the backend.
-              </p>
+              <div className="empty">No samples — run scripts/generate_pdfs.py</div>
             )}
             {samples.map((s) => (
-              <div className="row" key={s.name}>
-                <span className="name">{s.name}</span>
-                <button
-                  className="btn"
-                  disabled={starting !== null}
-                  onClick={() => startRun(s.storage_path)}
-                >
+              <div
+                className="row"
+                key={s.name}
+                onClick={() => !starting && startRun(s.storage_path)}
+              >
+                <div>
+                  <div className="name">{s.name}</div>
+                </div>
+                <button className="btn small" disabled={starting !== null}>
                   {starting === s.storage_path ? "Starting…" : "Process"}
                 </button>
               </div>
             ))}
-            <div className="row" style={{ marginTop: 6 }}>
+            <div
+              style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 12 }}
+            >
               <input type="file" ref={fileRef} accept="application/pdf" />
-              <button className="btn secondary" onClick={upload}>Upload &amp; run</button>
+              <button className="btn secondary small" onClick={upload}>
+                Upload &amp; run
+              </button>
             </div>
           </div>
 
@@ -131,36 +192,47 @@ export default function Home() {
         </div>
 
         <div className="card">
-          <h2 style={{ display: "flex", alignItems: "center" }}>
-            Workflow runs<span className="hint">auto-refreshes</span>
+          <h2>
+            Workflow runs<span className="hint">click to inspect</span>
             <button
-              className="btn secondary"
-              style={{ marginLeft: "auto", fontSize: 11.5, padding: "4px 10px" }}
-              title="Clear processed documents & runs so demo scenarios can be re-run (idempotency guard blocks reprocessing the same PDF)"
-              onClick={async () => {
-                if (!window.confirm("Reset demo data? All runs, documents and reports will be cleared.")) return;
+              className="btn secondary small"
+              style={{ marginLeft: "auto" }}
+              title="Clear processed documents & runs so demo scenarios can be re-run"
+              onClick={async (e) => {
+                e.stopPropagation();
+                if (!window.confirm("Reset demo data? All runs, documents and reports will be cleared."))
+                  return;
                 await api("/demo/reset", { method: "POST" });
-                await refresh();
+                setSelectedId(null);
+                setDetail(null);
+                await refreshRuns();
               }}
             >
               Reset demo
             </button>
           </h2>
-          {runs.length === 0 && <p className="muted">No runs yet.</p>}
+          {runs.length === 0 && (
+            <div className="empty">No runs yet — process a notice from the inbox.</div>
+          )}
           {runs.map((r) => (
-            <Link href={`/runs/${r.run_id}`} key={r.run_id} style={{ color: "inherit" }}>
-              <div className="row">
-                <div>
-                  <div className="name">
-                    {r.document?.split(/[\\/]/).pop() ?? r.run_id.slice(0, 8)}
-                  </div>
-                  <div className="muted">
-                    {r.current_node ?? "—"} · {new Date(r.started_at).toLocaleTimeString()}
-                  </div>
+            <div
+              className={`row ${r.run_id === selectedId ? "selected" : ""}`}
+              key={r.run_id}
+              onClick={() => {
+                setSelectedId(r.run_id);
+                setDetail(null);
+              }}
+            >
+              <div>
+                <div className="name">
+                  {r.document?.split(/[\\/]/).pop() ?? r.run_id.slice(0, 8)}
                 </div>
-                <span className={`chip ${r.status}`}>{r.status.replace("_", " ")}</span>
+                <div className="meta">
+                  {r.current_node ?? "—"} · {new Date(r.started_at).toLocaleTimeString()}
+                </div>
               </div>
-            </Link>
+              <span className={`chip ${r.status}`}>{r.status.replace("_", " ")}</span>
+            </div>
           ))}
         </div>
       </div>

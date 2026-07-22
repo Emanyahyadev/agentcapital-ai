@@ -12,17 +12,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <div className="container">
-          <div className="header">
-            <h1>
-              <Link href="/" style={{ color: "inherit" }}>✦ Polaris</Link>
-            </h1>
-            <span className="sub">
-              autonomous capital-call processing · The Whitmore Family Office
-            </span>
-          </div>
-          {children}
+        <div className="topbar">
+          <Link href="/" className="brand">✦ Polaris</Link>
+          <span className="sub">
+            autonomous capital-call processing · The Whitmore Family Office
+          </span>
         </div>
+        <div className="container">{children}</div>
       </body>
     </html>
   );
