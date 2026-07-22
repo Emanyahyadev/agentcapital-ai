@@ -13,7 +13,7 @@ from typing import Any
 
 import pymupdf
 
-from src.agents.base import BaseAgent, PermanentFailure
+from src.agents.base import BaseAgent, ContractViolation, PermanentFailure
 from src.core.contracts import ParsedNotice
 from src.core.llm import extract_structured
 from src.core.state import PolarisState
@@ -97,6 +97,14 @@ class NoticeParserAgent(BaseAgent):
         # Only the guard's sanitized text may reach the LLM.
         sanitized = state["guard_verdict"]["sanitized_text"]
         parsed = extract_structured(ParsedNotice, PARSE_SYSTEM_PROMPT, sanitized)
+
+        # Well-formed is not true: the extracted amount and fund name must
+        # literally appear in the source, or the extraction is rejected.
+        from src.guardrails.output_guard import grounding_issues
+
+        issues = grounding_issues(parsed.model_dump(mode="json"), sanitized)
+        if issues:
+            raise ContractViolation(f"ungrounded extraction: {'; '.join(issues)}")
 
         with db_conn() as conn:
             conn.execute(
