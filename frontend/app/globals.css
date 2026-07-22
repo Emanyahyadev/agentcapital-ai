@@ -70,7 +70,8 @@ a { color: inherit; text-decoration: none; }
 
 .grid { display: grid; grid-template-columns: 5fr 7fr; gap: 18px; align-items: start; }
 .grid2 { display: grid; grid-template-columns: 7fr 5fr; gap: 18px; align-items: start; }
-@media (max-width: 900px) { .grid, .grid2 { grid-template-columns: 1fr; } }
+.layout { display: grid; grid-template-columns: 5fr 7fr; gap: 18px; align-items: start; }
+@media (max-width: 900px) { .grid, .grid2, .layout { grid-template-columns: 1fr; } }
 
 /* ---------- agent pipeline ---------- */
 

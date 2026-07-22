@@ -139,7 +139,7 @@ export default function Home() {
         }}
       />
 
-      <div className="grid">
+      <div className="layout">
         <div>
           <div className="card">
             <h2>
@@ -174,26 +174,7 @@ export default function Home() {
 
           <div className="card">
             <h2>
-              Ask the book<span className="hint">hybrid RAG + live positions</span>
-            </h2>
-            <textarea
-              rows={2}
-              placeholder='e.g. "What is our total exposure to NeuroAI Inc across funds?"'
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-            />
-            <div style={{ marginTop: 10 }}>
-              <button className="btn" onClick={ask} disabled={asking}>
-                {asking ? "Thinking…" : "Ask"}
-              </button>
-            </div>
-            {answer && <div className="answer">{answer}</div>}
-          </div>
-        </div>
-
-        <div className="card">
-          <h2>
-            Workflow runs<span className="hint">click to inspect</span>
+              Workflow runs<span className="hint">click to inspect</span>
             <button
               className="btn secondary small"
               style={{ marginLeft: "auto" }}
@@ -234,10 +215,31 @@ export default function Home() {
               <span className={`chip ${r.status}`}>{r.status.replace("_", " ")}</span>
             </div>
           ))}
+          </div>
+
+          <div className="card">
+            <h2>
+              Ask the book<span className="hint">hybrid RAG + live positions</span>
+            </h2>
+            <textarea
+              rows={2}
+              placeholder='e.g. "What is our total exposure to NeuroAI Inc across funds?"'
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+            />
+            <div style={{ marginTop: 10 }}>
+              <button className="btn" onClick={ask} disabled={asking}>
+                {asking ? "Thinking…" : "Ask"}
+              </button>
+            </div>
+            {answer && <div className="answer">{answer}</div>}
+          </div>
+        </div>
+
+        <div>
+          <BriefingPanel run={detail} />
         </div>
       </div>
-
-      <BriefingPanel run={detail} />
     </>
   );
 }

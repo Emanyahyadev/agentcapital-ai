@@ -118,7 +118,17 @@ export function BriefingPanel({
   auditOpen?: boolean;
 }) {
   const reportRef = useRef<HTMLDivElement>(null);
-  if (!run || (!run.report && run.timeline.length === 0)) return null;
+  if (!run || (!run.report && run.timeline.length === 0)) {
+    return (
+      <div className="card">
+        <h2>Intelligence briefing</h2>
+        <div className="empty">
+          Process a notice from the inbox — the briefing appears here once the
+          pipeline completes.
+        </div>
+      </div>
+    );
+  }
 
   function downloadMarkdown() {
     if (!run || !run.report) return;
