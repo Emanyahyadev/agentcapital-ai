@@ -131,8 +131,20 @@ export default function Home() {
         </div>
 
         <div className="card">
-          <h2>
+          <h2 style={{ display: "flex", alignItems: "center" }}>
             Workflow runs<span className="hint">auto-refreshes</span>
+            <button
+              className="btn secondary"
+              style={{ marginLeft: "auto", fontSize: 11.5, padding: "4px 10px" }}
+              title="Clear processed documents & runs so demo scenarios can be re-run (idempotency guard blocks reprocessing the same PDF)"
+              onClick={async () => {
+                if (!window.confirm("Reset demo data? All runs, documents and reports will be cleared.")) return;
+                await api("/demo/reset", { method: "POST" });
+                await refresh();
+              }}
+            >
+              Reset demo
+            </button>
           </h2>
           {runs.length === 0 && <p className="muted">No runs yet.</p>}
           {runs.map((r) => (

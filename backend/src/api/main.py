@@ -295,6 +295,17 @@ def ask(body: Question) -> dict:
     return {"answer": answer, "sources": chunks}
 
 
+@app.post("/demo/reset")
+def demo_reset() -> dict:
+    """Clear processed data (documents, runs, transactions, reports,
+    checkpoints) so demo scenarios can be re-run. Master data — entities,
+    custodian feed, holdings — is untouched. The sha256 idempotency guard
+    makes this necessary: the same notice is never processed twice."""
+    from src.db.reset import reset_demo_data
+
+    return {"reset": True, "cleared": reset_demo_data()}
+
+
 @app.get("/custodian/feed")
 def custodian_feed() -> list[dict]:
     """The mock custodian bank feed — exposed so the demo can show what the
