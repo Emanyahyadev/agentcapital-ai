@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# Node / Next.js
+node_modules/
+frontend/.next/
+frontend/out/
+.vercel
+
+# Generated artifacts
+backend/data/generated_pdfs/
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
