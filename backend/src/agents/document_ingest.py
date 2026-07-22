@@ -112,6 +112,15 @@ class NoticeParserAgent(BaseAgent):
                 " status = 'parsed', parsed_at = now() where id = %s",
                 (parsed.model_dump_json(), parsed.doc_type, state["document_id"]),
             )
+        # Feed the RAG store as documents flow through. Soft dependency:
+        # a failed embedding call must not fail the accounting pipeline.
+        try:
+            from src.retrieval.retriever import index_document
+
+            index_document(state["document_id"], sanitized)
+        except Exception as exc:  # noqa: BLE001
+            self.log.warning("rag_indexing_skipped", error=str(exc))
+
         audit(state.get("run_id"), self.name, "notice_parsed",
               payload={"doc_type": parsed.doc_type, "fund_name_raw": parsed.fund_name_raw,
                        "amount_usd": parsed.amount_usd})
