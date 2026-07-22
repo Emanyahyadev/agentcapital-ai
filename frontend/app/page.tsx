@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, API_BASE, RunDetail, RunSummary, Sample } from "@/lib/api";
-import RunConsole from "@/components/RunConsole";
+import { BriefingPanel, PipelinePanel } from "@/components/RunConsole";
 
 const TERMINAL = new Set(["completed", "failed", "rejected"]);
 
@@ -131,7 +131,7 @@ export default function Home() {
         </div>
       </div>
 
-      <RunConsole
+      <PipelinePanel
         run={detail}
         onChanged={() => {
           refreshDetail();
@@ -236,6 +236,8 @@ export default function Home() {
           ))}
         </div>
       </div>
+
+      <BriefingPanel run={detail} />
     </>
   );
 }

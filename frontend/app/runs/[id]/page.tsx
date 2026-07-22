@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { api, RunDetail } from "@/lib/api";
-import RunConsole from "@/components/RunConsole";
+import { BriefingPanel, PipelinePanel } from "@/components/RunConsole";
 
 const TERMINAL = new Set(["completed", "failed", "rejected"]);
 
@@ -40,7 +40,8 @@ export default function RunPage() {
         <Link href="/" style={{ color: "var(--muted)" }}>← back to console</Link>
       </p>
       {err && <div className="error-box" style={{ marginBottom: 18 }}>{err}</div>}
-      <RunConsole run={run} onChanged={refresh} />
+      <PipelinePanel run={run} onChanged={refresh} />
+      <BriefingPanel run={run} auditOpen />
     </>
   );
 }
