@@ -31,6 +31,9 @@ export default function Home() {
     api<{ position_value_usd: number }[]>("/custodian/feed")
       .then((rows) => setNav(rows.reduce((s, r) => s + r.position_value_usd, 0)))
       .catch(() => {});
+    api<Sample[]>("/documents/samples")
+      .then((s) => setSamples((prev) => (s.length ? s : prev)))
+      .catch(() => {});
   }, []);
 
   const refreshDetail = useCallback(async () => {
@@ -43,7 +46,6 @@ export default function Home() {
   }, [selectedId]);
 
   useEffect(() => {
-    api<Sample[]>("/documents/samples").then(setSamples).catch(() => {});
     refreshRuns();
     const t = setInterval(refreshRuns, 5000);
     return () => clearInterval(t);
