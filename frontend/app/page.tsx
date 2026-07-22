@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, API_BASE, Metrics, RunDetail, RunSummary, Sample } from "@/lib/api";
 import MetricsStrip from "@/components/MetricsStrip";
-import { BriefingPanel, PipelinePanel } from "@/components/RunConsole";
+import { ActivityCard, BriefingPanel, GatePanel, InspectRow } from "@/components/RunConsole";
+import { currentStage } from "@/lib/pipeline";
 
 const TERMINAL = new Set(["completed", "failed", "rejected"]);
 
@@ -14,6 +15,7 @@ export default function Home() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<RunDetail | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
   const [starting, setStarting] = useState<string | null>(null);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
@@ -108,25 +110,29 @@ export default function Home() {
     }
   }
 
+  const onChanged = () => {
+    refreshDetail();
+    refreshRuns();
+  };
+  const inspecting = picked ?? currentStage(detail);
+
   return (
     <>
       {err && <div className="error-box" style={{ marginBottom: 18 }}>{err}</div>}
 
       <MetricsStrip metrics={metrics} nav={nav} />
 
-      <PipelinePanel
-        run={detail}
-        onChanged={() => {
-          refreshDetail();
-          refreshRuns();
-        }}
-      />
-
+      {/* Live agents on the left, controls on the right — process and watch together. */}
       <div className="layout">
+        <div>
+          <ActivityCard run={detail} inspecting={inspecting} onSelect={setPicked} />
+          <GatePanel run={detail} onChanged={onChanged} />
+        </div>
+
         <div>
           <div className="card">
             <h2>
-              Inbox<span className="hint">synthetic notices — click to process</span>
+              Inbox<span className="hint">click to process</span>
             </h2>
             {samples.length === 0 && (
               <div className="empty">No samples — run scripts/generate_pdfs.py</div>
@@ -137,17 +143,13 @@ export default function Home() {
                 key={s.name}
                 onClick={() => !starting && startRun(s.storage_path)}
               >
-                <div>
-                  <div className="name">{s.name}</div>
-                </div>
+                <div className="name">{s.name}</div>
                 <button className="btn small" disabled={starting !== null}>
                   {starting === s.storage_path ? "Starting…" : "Process"}
                 </button>
               </div>
             ))}
-            <div
-              style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 12 }}
-            >
+            <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 12 }}>
               <input type="file" ref={fileRef} accept="application/pdf" />
               <button className="btn secondary small" onClick={upload}>
                 Upload &amp; run
@@ -158,69 +160,74 @@ export default function Home() {
           <div className="card">
             <h2>
               Workflow runs<span className="hint">click to inspect</span>
-            <button
-              className="btn secondary small"
-              style={{ marginLeft: "auto" }}
-              title="Clear processed documents & runs so demo scenarios can be re-run"
-              onClick={async (e) => {
-                e.stopPropagation();
-                if (!window.confirm("Reset demo data? All runs, documents and reports will be cleared."))
-                  return;
-                await api("/demo/reset", { method: "POST" });
-                setSelectedId(null);
-                setDetail(null);
-                await refreshRuns();
-              }}
-            >
-              Reset demo
-            </button>
-          </h2>
-          {runs.length === 0 && (
-            <div className="empty">No runs yet — process a notice from the inbox.</div>
-          )}
-          {runs.map((r) => (
-            <div
-              className={`row ${r.run_id === selectedId ? "selected" : ""}`}
-              key={r.run_id}
-              onClick={() => {
-                setSelectedId(r.run_id);
-                setDetail(null);
-              }}
-            >
-              <div>
-                <div className="name">
-                  {r.document?.split(/[\\/]/).pop() ?? r.run_id.slice(0, 8)}
-                </div>
-                <div className="meta">
-                  {r.current_node ?? "—"} · {new Date(r.started_at).toLocaleTimeString()}
-                </div>
-              </div>
-              <span className={`chip ${r.status}`}>{r.status.replace("_", " ")}</span>
-            </div>
-          ))}
-          </div>
-
-          <div className="card">
-            <h2>
-              Ask the book<span className="hint">hybrid RAG + live positions</span>
-            </h2>
-            <textarea
-              rows={2}
-              placeholder='e.g. "What is our total exposure to NeuroAI Inc across funds?"'
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-            />
-            <div style={{ marginTop: 10 }}>
-              <button className="btn" onClick={ask} disabled={asking}>
-                {asking ? "Thinking…" : "Ask"}
+              <button
+                className="btn secondary small"
+                style={{ marginLeft: "auto" }}
+                title="Clear processed documents & runs so demo scenarios can be re-run"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  if (!window.confirm("Reset demo data? All runs, documents and reports will be cleared."))
+                    return;
+                  await api("/demo/reset", { method: "POST" });
+                  setSelectedId(null);
+                  setDetail(null);
+                  setPicked(null);
+                  await refreshRuns();
+                }}
+              >
+                Reset demo
               </button>
-            </div>
-            {answer && <div className="answer">{answer}</div>}
+            </h2>
+            {runs.length === 0 && (
+              <div className="empty">No runs yet — process a notice from the inbox.</div>
+            )}
+            {runs.map((r) => (
+              <div
+                className={`row ${r.run_id === selectedId ? "selected" : ""}`}
+                key={r.run_id}
+                onClick={() => {
+                  setSelectedId(r.run_id);
+                  setDetail(null);
+                  setPicked(null);
+                }}
+              >
+                <div>
+                  <div className="name">
+                    {r.document?.split(/[\\/]/).pop() ?? r.run_id.slice(0, 8)}
+                  </div>
+                  <div className="meta">
+                    {r.current_node ?? "—"} · {new Date(r.started_at).toLocaleTimeString()}
+                  </div>
+                </div>
+                <span className={`chip ${r.status}`}>{r.status.replace("_", " ")}</span>
+              </div>
+            ))}
           </div>
         </div>
+      </div>
 
-        <div>
-          <BriefingPanel run={detail} />
+      {/* Deep dive: real orchestration graph + per-agent inspector. */}
+      <InspectRow run={detail} inspecting={inspecting} onSelect={setPicked} />
+
+      {/* Report faces the question box. */}
+      <div className="grid2">
+        <BriefingPanel run={detail} />
+        <div className="card">
+          <h2>
+            Ask the book<span className="hint">hybrid RAG + live positions</span>
+          </h2>
+          <textarea
+            rows={3}
+            placeholder='e.g. "What is our total exposure to NeuroAI Inc across funds?"'
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+          />
+          <div style={{ marginTop: 10 }}>
+            <button className="btn" onClick={ask} disabled={asking}>
+              {asking ? "Thinking…" : "Ask"}
+            </button>
+          </div>
+          {answer && <div className="answer">{answer}</div>}
         </div>
       </div>
     </>

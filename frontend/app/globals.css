@@ -115,6 +115,65 @@ a { color: inherit; text-decoration: none; }
 .stage.failed .label { color: var(--bad); }
 .stage.sel .node { box-shadow: 0 0 0 3px var(--soft), 0 0 0 4px var(--ink); }
 
+/* ---------- live agent rail ---------- */
+
+.rail { display: flex; flex-direction: column; }
+.rail-row {
+  display: flex; gap: 12px; padding: 9px 8px; border-radius: 8px;
+  align-items: stretch; border: 1px solid transparent;
+}
+.rail-row:hover { background: var(--soft); }
+.rail-row.sel { background: var(--soft); border-color: var(--border-strong); }
+
+.rail-track { display: flex; flex-direction: column; align-items: center; width: 24px; }
+.rail-node {
+  width: 24px; height: 24px; border-radius: 50%; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700;
+  border: 2px solid var(--border-strong); background: var(--panel); color: var(--muted);
+}
+.rail-line { width: 2px; flex: 1; min-height: 12px; background: var(--border-strong); margin-top: 3px; }
+.rail-line.filled { background: var(--ok); }
+
+.rail-row.done .rail-node { background: var(--ok); border-color: var(--ok); color: #fff; }
+.rail-row.failed .rail-node { background: var(--bad); border-color: var(--bad); color: #fff; }
+.rail-row.waiting .rail-node { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); }
+.rail-row.active .rail-node { border-color: var(--ink); }
+.rail-row.skipped .rail-node { border-style: dashed; opacity: 0.55; }
+.rail-row.skipped .rail-main { opacity: 0.55; }
+
+.rail-main { flex: 1; padding-top: 1px; }
+.rail-name { font-size: 13.5px; font-weight: 650; display: flex; align-items: center; gap: 8px; }
+.rail-mode {
+  font-size: 9.5px; font-weight: 600; color: var(--muted); letter-spacing: 0.4px;
+  border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; text-transform: uppercase;
+}
+.rail-gate {
+  font-size: 9px; color: var(--warn); border: 1px solid var(--warn);
+  border-radius: 999px; padding: 0 6px; letter-spacing: 0.4px;
+}
+.rail-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.rail-row.active .rail-desc { color: var(--ink); font-weight: 500; }
+
+.rail-right { text-align: right; min-width: 62px; padding-top: 2px; }
+.rail-time {
+  font-family: ui-monospace, "Cascadia Code", monospace; font-size: 13px;
+  font-variant-numeric: tabular-nums; color: var(--muted);
+}
+.rail-time.live { color: var(--ink); font-weight: 700; }
+.rail-time.waitc { color: var(--warn); font-size: 11px; }
+.rail-tok {
+  display: block; font-size: 10px; color: var(--muted); margin-top: 2px;
+  font-family: ui-monospace, monospace;
+}
+
+.spinner {
+  width: 13px; height: 13px; border-radius: 50%;
+  border: 2px solid var(--border-strong); border-top-color: var(--ink);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* ---------- orchestration graph ---------- */
 
 .graph { width: 100%; max-width: 460px; height: auto; display: block; margin: 0 auto; }

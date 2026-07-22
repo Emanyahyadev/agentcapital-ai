@@ -1,42 +1,61 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { api, RunDetail } from "@/lib/api";
 import AgentDrawer from "@/components/AgentDrawer";
+import AgentRail from "@/components/AgentRail";
 import GraphView from "@/components/GraphView";
-import Pipeline from "@/components/Pipeline";
-import { deriveStates, STAGES } from "@/lib/pipeline";
 
-/** The stage a live run is "at" — the one worth showing by default. */
-function currentStage(run: RunDetail | null): string | null {
-  if (!run) return null;
-  const states = deriveStates(run);
-  const active = STAGES.find(
-    (s) => ["active", "waiting", "failed"].includes(states[s.key]),
+/** Live agent activity: every agent inline, the running one ticking each
+ *  second — no clicking needed to see what's happening. */
+export function ActivityCard({
+  run,
+  inspecting,
+  onSelect,
+}: {
+  run: RunDetail | null;
+  inspecting: string | null;
+  onSelect: (key: string) => void;
+}) {
+  return (
+    <div className="card">
+      <h2>
+        Agent activity
+        {run ? (
+          <>
+            <span className="hint">live · updates every second</span>
+            <span className={`chip ${run.status}`} style={{ marginLeft: "auto" }}>
+              {run.status.replace("_", " ")}
+            </span>
+          </>
+        ) : (
+          <span className="hint">process a notice to watch the agents work</span>
+        )}
+      </h2>
+      <AgentRail run={run} selected={inspecting} onSelect={onSelect} />
+      {run?.error && (
+        <div className="error-box" style={{ marginTop: 14 }}>
+          <b>{run.error.agent ?? "error"}:</b> {run.error.message}
+        </div>
+      )}
+    </div>
   );
-  if (active) return active.key;
-  const done = [...STAGES].reverse().find((s) => states[s.key] === "done");
-  return done?.key ?? null;
 }
 
-/** Pipeline + orchestration graph + agent inspector: how the agents think. */
-export function PipelinePanel({
+/** The human-in-the-loop approval card; renders nothing unless a run is
+ *  parked at a gate. */
+export function GatePanel({
   run,
   onChanged,
 }: {
   run: RunDetail | null;
   onChanged: () => void;
 }) {
-  const [picked, setPicked] = useState<string | null>(null);
   const [deciding, setDeciding] = useState(false);
   const [selectedCand, setSelectedCand] = useState<string | null>(null);
-
-  // Follow the live run unless the user has clicked a specific agent.
-  const inspecting = useMemo(
-    () => picked ?? currentStage(run),
-    [picked, run],
-  );
+  const gate = run?.pending_gate ?? null;
+  if (!run || !gate) return null;
 
   async function decide(action: "approve" | "reject") {
     if (!run) return;
@@ -54,89 +73,74 @@ export function PipelinePanel({
     }
   }
 
-  const gate = run?.pending_gate ?? null;
-
   return (
-    <>
+    <div className="card gate">
+      <h2>⏸ Human approval required — {gate.gate.replace("_", " ")}</h2>
+      <p className="reason">{gate.reason ?? gate.question}</p>
+
+      {gate.gate === "entity_gate" &&
+        (gate.candidates ?? []).map((c) => (
+          <div
+            key={c.entity_id}
+            className={`candidate ${selectedCand === c.entity_id ? "selected" : ""}`}
+            onClick={() => setSelectedCand(c.entity_id)}
+          >
+            <input type="radio" readOnly checked={selectedCand === c.entity_id} />
+            <span>
+              {c.name} <span className="muted">({c.kind})</span>
+            </span>
+            <span className="conf">
+              {c.method} · {(c.confidence * 100).toFixed(0)}%
+            </span>
+          </div>
+        ))}
+
+      {gate.gate === "exception_gate" &&
+        (gate.issues ?? []).map((issue, i) => (
+          <div className="issue" key={i}>
+            <span className="code">{issue.code}</span>
+            {issue.message}
+          </div>
+        ))}
+
+      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+        <button
+          className="btn approve"
+          disabled={deciding || (gate.gate === "entity_gate" && !selectedCand)}
+          onClick={() => decide("approve")}
+        >
+          {gate.gate === "entity_gate" ? "Approve selection" : "Override & continue"}
+        </button>
+        <button className="btn danger" disabled={deciding} onClick={() => decide("reject")}>
+          Reject
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Optional deep dive: the real orchestration graph beside a per-agent
+ *  inspector (duration, tokens, confidence, activity). */
+export function InspectRow({
+  run,
+  inspecting,
+  onSelect,
+}: {
+  run: RunDetail | null;
+  inspecting: string | null;
+  onSelect: (key: string) => void;
+}) {
+  return (
+    <div className="grid2">
       <div className="card">
         <h2>
-          Agent pipeline
-          {run ? (
-            <>
-              <span className="hint">
-                {run.document?.split(/[\\/]/).pop() ?? run.run_id.slice(0, 8)}
-              </span>
-              <span className={`chip ${run.status}`} style={{ marginLeft: "auto" }}>
-                {run.status.replace("_", " ")}
-              </span>
-            </>
-          ) : (
-            <span className="hint">process a notice to watch the agents work</span>
-          )}
+          Orchestration graph
+          <span className="hint">real LangGraph topology · click a node</span>
         </h2>
-        <Pipeline run={run} selected={inspecting} onSelect={setPicked} />
-        {run?.error && (
-          <div className="error-box" style={{ marginTop: 16 }}>
-            <b>{run.error.agent ?? "error"}:</b> {run.error.message}
-          </div>
-        )}
+        <GraphView run={run} selected={inspecting} onSelect={onSelect} />
       </div>
-
-      {gate && (
-        <div className="card gate">
-          <h2>Human approval required — {gate.gate.replace("_", " ")}</h2>
-          <p className="reason">{gate.reason ?? gate.question}</p>
-
-          {gate.gate === "entity_gate" &&
-            (gate.candidates ?? []).map((c) => (
-              <div
-                key={c.entity_id}
-                className={`candidate ${selectedCand === c.entity_id ? "selected" : ""}`}
-                onClick={() => setSelectedCand(c.entity_id)}
-              >
-                <input type="radio" readOnly checked={selectedCand === c.entity_id} />
-                <span>
-                  {c.name} <span className="muted">({c.kind})</span>
-                </span>
-                <span className="conf">
-                  {c.method} · {(c.confidence * 100).toFixed(0)}%
-                </span>
-              </div>
-            ))}
-
-          {gate.gate === "exception_gate" &&
-            (gate.issues ?? []).map((issue, i) => (
-              <div className="issue" key={i}>
-                <span className="code">{issue.code}</span>
-                {issue.message}
-              </div>
-            ))}
-
-          <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-            <button
-              className="btn approve"
-              disabled={deciding || (gate.gate === "entity_gate" && !selectedCand)}
-              onClick={() => decide("approve")}
-            >
-              {gate.gate === "entity_gate" ? "Approve selection" : "Override & continue"}
-            </button>
-            <button className="btn danger" disabled={deciding} onClick={() => decide("reject")}>
-              Reject
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="grid2">
-        <div className="card">
-          <h2>
-            Orchestration graph<span className="hint">real LangGraph topology · click a node</span>
-          </h2>
-          <GraphView run={run} selected={inspecting} onSelect={setPicked} />
-        </div>
-        <AgentDrawer run={run} stageKey={inspecting} />
-      </div>
-    </>
+      <AgentDrawer run={run} stageKey={inspecting} />
+    </div>
   );
 }
 

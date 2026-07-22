@@ -84,6 +84,32 @@ export function deriveStates(run: RunDetail): Record<string, StageState> {
   return states;
 }
 
+/** The stage a live run is "at" — the one worth showing by default. */
+export function currentStage(run: RunDetail | null): string | null {
+  if (!run) return null;
+  const states = deriveStates(run);
+  const active = STAGES.find(
+    (s) => ["active", "waiting", "failed"].includes(states[s.key]),
+  );
+  if (active) return active.key;
+  const done = [...STAGES].reverse().find((s) => states[s.key] === "done");
+  return done?.key ?? null;
+}
+
+/** Parse a Postgres timestamp string to epoch ms (handles the space form). */
+export function parseTs(ts: string): number {
+  return new Date(ts.replace(" ", "T")).getTime();
+}
+
+/** Best estimate of when the currently-running agent started: the newest
+ *  event so far (previous agent's completion), else the run's start. */
+export function activeStartTs(run: RunDetail): number {
+  const t = run.timeline.length
+    ? run.timeline[run.timeline.length - 1].ts
+    : run.started_at;
+  return parseTs(t);
+}
+
 /** All audit events attributed to one agent, oldest first. */
 export function stageEvents(run: RunDetail, key: string): TimelineEvent[] {
   return run.timeline.filter((t) => t.agent === key);
