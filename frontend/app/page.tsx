@@ -28,6 +28,9 @@ export default function Home() {
     } catch (e) {
       setErr(`Backend unreachable: ${e}`);
     }
+    api<{ position_value_usd: number }[]>("/custodian/feed")
+      .then((rows) => setNav(rows.reduce((s, r) => s + r.position_value_usd, 0)))
+      .catch(() => {});
   }, []);
 
   const refreshDetail = useCallback(async () => {
@@ -41,9 +44,6 @@ export default function Home() {
 
   useEffect(() => {
     api<Sample[]>("/documents/samples").then(setSamples).catch(() => {});
-    api<{ position_value_usd: number }[]>("/custodian/feed")
-      .then((rows) => setNav(rows.reduce((s, r) => s + r.position_value_usd, 0)))
-      .catch(() => {});
     refreshRuns();
     const t = setInterval(refreshRuns, 5000);
     return () => clearInterval(t);
