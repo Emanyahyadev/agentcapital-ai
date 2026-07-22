@@ -84,19 +84,72 @@ a { color: inherit; text-decoration: none; }
 }
 .section:first-of-type { margin-top: 6px; }
 
-/* Combined execution panel: graph + live rail as two columns of one card. */
-.exec-grid {
-  display: grid; grid-template-columns: minmax(300px, 430px) 1fr; gap: 26px;
-  align-items: start;
+/* ---------- unified agent flowchart (topology + live status in one) ---------- */
+
+.flow { display: flex; flex-direction: column; }
+
+.flow-row { display: grid; grid-template-columns: 28px 1fr; align-items: stretch; }
+.flow-row.branch { margin-left: 30px; }
+
+.flow-track { display: flex; flex-direction: column; align-items: center; }
+.flow-dot {
+  width: 26px; height: 26px; border-radius: 50%; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700;
+  border: 2px solid var(--border-strong); background: var(--panel); color: var(--muted);
+  z-index: 1;
 }
-@media (max-width: 820px) { .exec-grid { grid-template-columns: 1fr; } }
-.exec-col { min-width: 0; }
-.exec-sub {
-  font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.5px;
-  color: var(--muted); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+.flow-line { width: 2px; flex: 1; min-height: 14px; background: var(--border-strong); margin: 2px 0; }
+.flow-line.filled { background: var(--ok); }
+.flow-track.branchtrack { position: relative; }
+.flow-track.branchtrack::before {
+  content: ""; position: absolute; left: -30px; top: 13px; width: 30px; height: 2px;
+  background: var(--border-strong);
 }
-.exec-sub .hint {
-  font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 11.5px;
+
+.flow-dot.done { background: var(--ok); border-color: var(--ok); color: #fff; }
+.flow-dot.failed { background: var(--bad); border-color: var(--bad); color: #fff; }
+.flow-dot.waiting { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); }
+.flow-dot.active { border-color: var(--ink); }
+.flow-dot.skipped, .flow-dot.idle { border-style: dashed; opacity: 0.6; }
+
+.flow-card {
+  flex: 1; margin: 0 0 10px 12px; padding: 9px 12px;
+  border: 1px solid var(--border); border-radius: 9px; background: var(--panel);
+}
+.flow-row:hover .flow-card { border-color: var(--border-strong); }
+.flow-card.sel { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.flow-card.done { background: #fbfcfb; }
+.flow-card.active { border-color: var(--ink); background: #fbfaf8; }
+.flow-card.failed { border-color: #dcb4b1; background: var(--bad-soft); }
+.flow-card.waiting { border-color: #e3cf9d; background: #fdf9ef; }
+.flow-card.skipped { opacity: 0.7; }
+.flow-card.branchcard { border-style: dashed; }
+.flow-card.muted { opacity: 0.65; }
+
+.flow-card-top { display: flex; align-items: center; gap: 8px; }
+.flow-name { font-size: 13.5px; font-weight: 650; }
+.flow-mode {
+  font-size: 9px; font-weight: 600; color: var(--muted); letter-spacing: 0.4px;
+  border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; text-transform: uppercase;
+}
+.flow-human {
+  font-size: 9px; color: var(--warn); border: 1px solid var(--warn);
+  border-radius: 999px; padding: 0 6px; letter-spacing: 0.4px;
+}
+.flow-time {
+  margin-left: auto; font-family: ui-monospace, "Cascadia Code", monospace;
+  font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--muted);
+}
+.flow-time.live { color: var(--ink); font-weight: 700; }
+.flow-time.waitc { color: var(--warn); font-size: 11px; }
+.flow-time.idle { opacity: 0.5; }
+.flow-desc { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.flow-card.active .flow-desc { color: var(--ink); font-weight: 500; }
+.flow-branch-cond { margin-left: auto; font-size: 11px; color: var(--muted); }
+.flow-tok {
+  display: inline-block; margin-top: 4px; font-size: 10.5px; color: var(--muted);
+  font-family: ui-monospace, monospace;
 }
 
 /* ---------- agent pipeline ---------- */

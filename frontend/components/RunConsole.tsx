@@ -4,8 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { api, RunDetail } from "@/lib/api";
 import AgentDrawer from "@/components/AgentDrawer";
-import AgentRail from "@/components/AgentRail";
-import GraphView from "@/components/GraphView";
+import AgentFlow from "@/components/AgentFlow";
 import { currentStage } from "@/lib/pipeline";
 
 /** Human-in-the-loop approval card; renders nothing unless a run is parked
@@ -102,46 +101,36 @@ export function ExecutionPanel({
 
   return (
     <>
-      <div className="card">
-        <h2>
-          Agent activity
-          {run ? (
-            <>
-              <span className="hint">live · updates every second</span>
-              <span className={`chip ${run.status}`} style={{ marginLeft: "auto" }}>
-                {run.status.replace("_", " ")}
-              </span>
-            </>
-          ) : (
-            <span className="hint">process a notice to watch the agents work</span>
-          )}
-        </h2>
-
-        <div className="exec-grid">
-          <div className="exec-col">
-            <div className="exec-sub">
-              Orchestration graph<span className="hint">LangGraph topology · click a node</span>
-            </div>
-            <GraphView run={run} selected={inspecting} onSelect={setPicked} />
-          </div>
-          <div className="exec-col">
-            <div className="exec-sub">
-              Execution timeline<span className="hint">live duration &amp; tokens per agent</span>
-            </div>
-            <AgentRail run={run} selected={inspecting} onSelect={setPicked} />
-          </div>
-        </div>
-
-        {run?.error && (
-          <div className="error-box" style={{ marginTop: 14 }}>
-            <b>{run.error.agent ?? "error"}:</b> {run.error.message}
-          </div>
-        )}
-      </div>
-
+      {/* Approval is the priority action — surfaced above the chart. */}
       <GatePanel run={run} onChanged={onChanged} />
 
-      <AgentDrawer run={run} stageKey={inspecting} />
+      {/* DAG-view layout: the live flowchart on the left, the selected
+          node's detail on the right — one topology, one live status. */}
+      <div className="grid2">
+        <div className="card">
+          <h2>
+            Agent activity
+            {run ? (
+              <>
+                <span className="hint">live · updates every second · click a node</span>
+                <span className={`chip ${run.status}`} style={{ marginLeft: "auto" }}>
+                  {run.status.replace("_", " ")}
+                </span>
+              </>
+            ) : (
+              <span className="hint">process a notice to watch the agents work</span>
+            )}
+          </h2>
+          <AgentFlow run={run} selected={inspecting} onSelect={setPicked} />
+          {run?.error && (
+            <div className="error-box" style={{ marginTop: 14 }}>
+              <b>{run.error.agent ?? "error"}:</b> {run.error.message}
+            </div>
+          )}
+        </div>
+
+        <AgentDrawer run={run} stageKey={inspecting} />
+      </div>
     </>
   );
 }
