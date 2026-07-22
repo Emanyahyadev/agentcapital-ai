@@ -19,7 +19,7 @@ from langgraph.types import Command
 from pydantic import BaseModel
 
 from src.config.settings import get_settings
-from src.core.llm import chat_model
+from src.core.llm import invoke_text
 from src.core.orchestrator import build_graph, mark_run
 from src.db.client import db_conn
 from src.observability.logger import bind_run_context, configure_logging, get_logger
@@ -286,13 +286,56 @@ def ask(body: Question) -> dict:
         },
     }
 
-    response = chat_model().invoke([
+    answer = invoke_text([
         ("system", ASK_SYSTEM_PROMPT),
         ("human", f"Question: {body.question}\n\nBook snapshot:\n"
                   f"{json.dumps(book)}\n\nDocument excerpts:\n{excerpts}"),
     ])
-    answer = response.content if isinstance(response.content, str) else str(response.content)
     return {"answer": answer, "sources": chunks}
+
+
+# Public Gemini 2.5 Flash list pricing (USD per 1M tokens) — used only to
+# turn REAL captured token counts into an indicative cost, never invented.
+_PRICE_INPUT_PER_M = 0.30
+_PRICE_OUTPUT_PER_M = 2.50
+
+
+@app.get("/metrics")
+def metrics() -> dict:
+    """Operational metrics computed from real data — run outcomes from
+    workflow_runs, token usage from the per-agent telemetry in audit_log."""
+    with db_conn() as conn:
+        status_rows = conn.execute(
+            "select status, count(*) from workflow_runs group by status"
+        ).fetchall()
+        by_status = {r[0]: r[1] for r in status_rows}
+        avg_runtime = conn.execute(
+            "select avg(extract(epoch from (updated_at - started_at)))"
+            " from workflow_runs where status = 'completed'"
+        ).fetchone()[0]
+        tok = conn.execute(
+            "select"
+            " coalesce(sum((payload->'tokens'->>'input')::int), 0),"
+            " coalesce(sum((payload->'tokens'->>'output')::int), 0)"
+            " from audit_log where event = 'agent_completed'"
+        ).fetchone()
+
+    completed = by_status.get("completed", 0)
+    terminal = completed + by_status.get("rejected", 0) + by_status.get("failed", 0)
+    tokens_in, tokens_out = int(tok[0]), int(tok[1])
+    cost = tokens_in / 1e6 * _PRICE_INPUT_PER_M + tokens_out / 1e6 * _PRICE_OUTPUT_PER_M
+
+    return {
+        "total_runs": sum(by_status.values()),
+        "by_status": by_status,
+        "completed": completed,
+        "success_rate": round(completed / terminal, 3) if terminal else None,
+        "avg_runtime_s": round(float(avg_runtime), 1) if avg_runtime else None,
+        "tokens_input": tokens_in,
+        "tokens_output": tokens_out,
+        "tokens_total": tokens_in + tokens_out,
+        "est_cost_usd": round(cost, 4),
+    }
 
 
 @app.post("/demo/reset")

@@ -8,7 +8,7 @@ from typing import Any
 
 from src.agents.base import BaseAgent
 from src.core.contracts import Report
-from src.core.llm import chat_model
+from src.core.llm import invoke_text
 from src.core.state import PolarisState
 from src.db.client import audit, db_conn
 
@@ -43,11 +43,10 @@ class ReportGeneratorAgent(BaseAgent):
             "risk_findings": state.get("risk_findings"),
             "supporting_excerpts": [c["content"] for c in context_chunks],
         }
-        response = chat_model().invoke([
+        markdown = invoke_text([
             ("system", REPORT_SYSTEM_PROMPT),
             ("human", json.dumps(facts, default=str)),
         ])
-        markdown = response.content if isinstance(response.content, str) else str(response.content)
 
         citations: list[dict[str, Any]] = [{
             "type": "source_document",

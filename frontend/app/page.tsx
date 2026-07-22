@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, API_BASE, RunDetail, RunSummary, Sample } from "@/lib/api";
+import { api, API_BASE, Metrics, RunDetail, RunSummary, Sample } from "@/lib/api";
+import MetricsStrip from "@/components/MetricsStrip";
 import { BriefingPanel, PipelinePanel } from "@/components/RunConsole";
 
 const TERMINAL = new Set(["completed", "failed", "rejected"]);
@@ -10,6 +11,7 @@ export default function Home() {
   const [samples, setSamples] = useState<Sample[]>([]);
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [nav, setNav] = useState<number | null>(null);
+  const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<RunDetail | null>(null);
   const [starting, setStarting] = useState<string | null>(null);
@@ -34,6 +36,7 @@ export default function Home() {
     api<Sample[]>("/documents/samples")
       .then((s) => setSamples((prev) => (s.length ? s : prev)))
       .catch(() => {});
+    api<Metrics>("/metrics").then(setMetrics).catch(() => {});
   }, []);
 
   const refreshDetail = useCallback(async () => {
@@ -105,33 +108,11 @@ export default function Home() {
     }
   }
 
-  const completed = runs.filter((r) => r.status === "completed").length;
-  const awaiting = runs.filter((r) => r.status === "awaiting_approval").length;
-
   return (
     <>
       {err && <div className="error-box" style={{ marginBottom: 18 }}>{err}</div>}
 
-      <div className="stats">
-        <div className="stat">
-          <div className="k">Portfolio NAV</div>
-          <div className="v">{nav === null ? "—" : `$${(nav / 1e6).toFixed(1)}M`}</div>
-        </div>
-        <div className="stat">
-          <div className="k">Runs completed</div>
-          <div className="v">{completed}</div>
-        </div>
-        <div className="stat">
-          <div className="k">Awaiting approval</div>
-          <div className="v" style={awaiting ? { color: "var(--warn)" } : undefined}>
-            {awaiting}
-          </div>
-        </div>
-        <div className="stat">
-          <div className="k">Agents</div>
-          <div className="v">6 + 2 gates</div>
-        </div>
-      </div>
+      <MetricsStrip metrics={metrics} nav={nav} />
 
       <PipelinePanel
         run={detail}

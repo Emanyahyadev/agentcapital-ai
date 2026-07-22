@@ -26,6 +26,8 @@ from pydantic import BaseModel, ValidationError
 from src.config.settings import Settings, get_settings
 from src.core.contracts import AgentError
 from src.core.state import PolarisState
+from src.core.telemetry import collected_tokens, reset_tokens
+from src.db.client import audit
 from src.observability.logger import get_logger
 
 
@@ -140,11 +142,21 @@ class BaseAgent(ABC):
         attempts = 0
         while True:
             attempts += 1
+            reset_tokens()
+            started = time.monotonic()
             try:
                 result = self.execute(state)
+                duration_ms = round((time.monotonic() - started) * 1000)
                 self._validate_output(result)
                 self.breaker.record_success()
-                self.log.info("agent_success", attempts=attempts)
+                tokens = collected_tokens()
+                self.log.info("agent_success", attempts=attempts,
+                              duration_ms=duration_ms, tokens=tokens)
+                # Real per-agent telemetry the console reads back: deterministic
+                # agents legitimately report zero tokens.
+                audit(state.get("run_id"), self.name, "agent_completed",
+                      payload={"duration_ms": duration_ms, "tokens": tokens,
+                               "attempts": attempts})
                 return result
             except Exception as exc:  # noqa: BLE001 — boundary: classify everything
                 failure = classify(exc)

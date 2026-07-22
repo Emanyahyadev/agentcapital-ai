@@ -53,3 +53,15 @@ export type RunDetail = RunSummary & {
 };
 
 export type Sample = { name: string; storage_path: string };
+
+export type Metrics = {
+  total_runs: number;
+  by_status: Record<string, number>;
+  completed: number;
+  success_rate: number | null;
+  avg_runtime_s: number | null;
+  tokens_input: number;
+  tokens_output: number;
+  tokens_total: number;
+  est_cost_usd: number;
+};

@@ -66,6 +66,8 @@ class RiskMonitorAgent(BaseAgent):
 
         validated = [RiskFinding.model_validate(f).model_dump(mode="json")
                      for f in findings]
+        # Carry the full findings (message, exposure, entities) so the console
+        # can render an honest "why was this flagged" explanation.
         audit(state.get("run_id"), self.name, "risk_assessed",
-              payload={"findings": [(f["kind"], f["severity"]) for f in validated]})
+              payload={"findings": validated})
         return {"risk_findings": validated}

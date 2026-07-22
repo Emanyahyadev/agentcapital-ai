@@ -10,7 +10,15 @@ const GLYPH: Record<StageState, (i: number) => string> = {
   pending: (i) => String(i + 1),
 };
 
-export default function Pipeline({ run }: { run: RunDetail | null }) {
+export default function Pipeline({
+  run,
+  selected,
+  onSelect,
+}: {
+  run: RunDetail | null;
+  selected?: string | null;
+  onSelect?: (key: string) => void;
+}) {
   const states = run ? deriveStates(run) : null;
 
   return (
@@ -18,7 +26,12 @@ export default function Pipeline({ run }: { run: RunDetail | null }) {
       {STAGES.map((stage, i) => {
         const state: StageState = states ? states[stage.key] : "pending";
         return (
-          <div className={`stage ${state}`} key={stage.key}>
+          <div
+            className={`stage ${state} ${selected === stage.key ? "sel" : ""}`}
+            key={stage.key}
+            onClick={() => onSelect?.(stage.key)}
+            style={onSelect ? { cursor: "pointer" } : undefined}
+          >
             {i > 0 && (
               <div className={`connector ${state === "done" ? "filled" : ""}`} />
             )}

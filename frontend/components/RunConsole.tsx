@@ -1,11 +1,26 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { api, RunDetail } from "@/lib/api";
+import AgentDrawer from "@/components/AgentDrawer";
+import GraphView from "@/components/GraphView";
 import Pipeline from "@/components/Pipeline";
+import { deriveStates, STAGES } from "@/lib/pipeline";
 
-/** Pipeline + human gate: the operational heart, always visible. */
+/** The stage a live run is "at" — the one worth showing by default. */
+function currentStage(run: RunDetail | null): string | null {
+  if (!run) return null;
+  const states = deriveStates(run);
+  const active = STAGES.find(
+    (s) => ["active", "waiting", "failed"].includes(states[s.key]),
+  );
+  if (active) return active.key;
+  const done = [...STAGES].reverse().find((s) => states[s.key] === "done");
+  return done?.key ?? null;
+}
+
+/** Pipeline + orchestration graph + agent inspector: how the agents think. */
 export function PipelinePanel({
   run,
   onChanged,
@@ -13,8 +28,15 @@ export function PipelinePanel({
   run: RunDetail | null;
   onChanged: () => void;
 }) {
-  const [selected, setSelected] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
   const [deciding, setDeciding] = useState(false);
+  const [selectedCand, setSelectedCand] = useState<string | null>(null);
+
+  // Follow the live run unless the user has clicked a specific agent.
+  const inspecting = useMemo(
+    () => picked ?? currentStage(run),
+    [picked, run],
+  );
 
   async function decide(action: "approve" | "reject") {
     if (!run) return;
@@ -23,7 +45,7 @@ export function PipelinePanel({
       await api(`/runs/${run.run_id}/${action}`, {
         method: "POST",
         body: JSON.stringify(
-          action === "approve" ? { selected_entity_id: selected } : {},
+          action === "approve" ? { selected_entity_id: selectedCand } : {},
         ),
       });
       onChanged();
@@ -52,7 +74,7 @@ export function PipelinePanel({
             <span className="hint">process a notice to watch the agents work</span>
           )}
         </h2>
-        <Pipeline run={run} />
+        <Pipeline run={run} selected={inspecting} onSelect={setPicked} />
         {run?.error && (
           <div className="error-box" style={{ marginTop: 16 }}>
             <b>{run.error.agent ?? "error"}:</b> {run.error.message}
@@ -69,10 +91,10 @@ export function PipelinePanel({
             (gate.candidates ?? []).map((c) => (
               <div
                 key={c.entity_id}
-                className={`candidate ${selected === c.entity_id ? "selected" : ""}`}
-                onClick={() => setSelected(c.entity_id)}
+                className={`candidate ${selectedCand === c.entity_id ? "selected" : ""}`}
+                onClick={() => setSelectedCand(c.entity_id)}
               >
-                <input type="radio" readOnly checked={selected === c.entity_id} />
+                <input type="radio" readOnly checked={selectedCand === c.entity_id} />
                 <span>
                   {c.name} <span className="muted">({c.kind})</span>
                 </span>
@@ -93,7 +115,7 @@ export function PipelinePanel({
           <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
             <button
               className="btn approve"
-              disabled={deciding || (gate.gate === "entity_gate" && !selected)}
+              disabled={deciding || (gate.gate === "entity_gate" && !selectedCand)}
               onClick={() => decide("approve")}
             >
               {gate.gate === "entity_gate" ? "Approve selection" : "Override & continue"}
@@ -104,6 +126,16 @@ export function PipelinePanel({
           </div>
         </div>
       )}
+
+      <div className="grid2">
+        <div className="card">
+          <h2>
+            Orchestration graph<span className="hint">real LangGraph topology · click a node</span>
+          </h2>
+          <GraphView run={run} selected={inspecting} onSelect={setPicked} />
+        </div>
+        <AgentDrawer run={run} stageKey={inspecting} />
+      </div>
     </>
   );
 }
