@@ -43,10 +43,20 @@ class ReportGeneratorAgent(BaseAgent):
             "risk_findings": state.get("risk_findings"),
             "supporting_excerpts": [c["content"] for c in context_chunks],
         }
-        markdown = invoke_text([
-            ("system", REPORT_SYSTEM_PROMPT),
-            ("human", json.dumps(facts, default=str)),
-        ])
+        # Graceful degradation: if the LLM is unavailable (rate limits, outage),
+        # compose the briefing deterministically from the already-validated
+        # facts rather than failing the run with no report.
+        try:
+            markdown = invoke_text([
+                ("system", REPORT_SYSTEM_PROMPT),
+                ("human", json.dumps(facts, default=str)),
+            ])
+            mode = "llm"
+        except Exception as exc:  # noqa: BLE001 — degrade, don't fail the run
+            self.log.warning("report_llm_unavailable_using_deterministic",
+                             error=str(exc)[:150])
+            markdown = deterministic_report(state)
+            mode = "deterministic"
 
         citations: list[dict[str, Any]] = [{
             "type": "source_document",
@@ -77,7 +87,8 @@ class ReportGeneratorAgent(BaseAgent):
                 )
 
         audit(state.get("run_id"), self.name, "report_generated",
-              payload={"chars": len(report.markdown), "citations": len(report.citations)})
+              payload={"chars": len(report.markdown),
+                       "citations": len(report.citations), "mode": mode})
         return {"report": report}
 
     def _retrieve_context(self, state: PolarisState) -> list[dict[str, Any]]:
@@ -95,3 +106,84 @@ class ReportGeneratorAgent(BaseAgent):
         except Exception as exc:  # noqa: BLE001 — RAG is enrichment, not a dependency
             self.log.warning("context_retrieval_skipped", error=str(exc))
             return []
+
+
+def _money(value: Any) -> str:
+    try:
+        return f"${float(value):,.2f}"
+    except (TypeError, ValueError):
+        return "n/a"
+
+
+def deterministic_report(state: PolarisState) -> str:
+    """Compose the briefing from validated pipeline facts, no LLM. Used as a
+    fallback when the model is unavailable so a report is always produced."""
+    notice = state.get("parsed") or {}
+    validation = state.get("validation") or {}
+    portfolio = state.get("portfolio") or {}
+    findings = state.get("risk_findings") or []
+    issues = validation.get("issues") or []
+    decision = state.get("human_decision")
+
+    fund = notice.get("fund_name_raw", "Unknown fund")
+    doc_type = (notice.get("doc_type") or "notice").replace("_", " ")
+    lines = [
+        f"## Intelligence Briefing — {fund}",
+        "",
+        "### Summary",
+        f"{doc_type.title()} for **{_money(notice.get('amount_usd'))}**"
+        + (f", due **{notice['due_date']}**" if notice.get("due_date") else "")
+        + f". Validation {'passed' if validation.get('passed') else 'flagged critical issues'}."
+        + f" {len(findings)} risk flag(s).",
+        "",
+        "### Transaction Detail",
+        f"- Fund: {fund}",
+        f"- Notice No.: {notice.get('notice_no') or 'n/a'}",
+        f"- Amount: {_money(notice.get('amount_usd'))}",
+        f"- Due date: {notice.get('due_date') or 'n/a'}",
+        f"- Effective date: {notice.get('effective_date') or 'n/a'}",
+        "",
+        "### Validation & Reconciliation",
+        "- Status: "
+        + ("Passed — no critical issues" if validation.get("passed")
+           else "Critical issues found"),
+    ]
+    for issue in issues:
+        lines.append(f"- `{issue.get('code')}` ({issue.get('severity')}): {issue.get('message')}")
+    if decision:
+        lines.append(f"- Human decision: **{decision}**")
+
+    lines += [
+        "",
+        "### Portfolio Impact",
+        f"- Total portfolio NAV as of {portfolio.get('as_of', 'n/a')}: "
+        f"**{_money(portfolio.get('total_nav_usd'))}**",
+        "",
+        "### Risk Flags",
+    ]
+    if findings:
+        for f in findings:
+            mark = "⚠ " if f.get("severity") == "critical" else ""
+            lines.append(f"- {mark}{f.get('message')}")
+            if f.get("entities"):
+                lines.append(f"  - across {', '.join(f['entities'])}")
+    else:
+        lines.append("- None.")
+
+    lines += [
+        "",
+        "### Recommended Actions",
+        (f"- Authorize the {doc_type} of {_money(notice.get('amount_usd'))}"
+         + (f" by {notice['due_date']}." if notice.get("due_date") else ".")
+         if validation.get("passed") or decision == "approved"
+         else "- Resolve the flagged validation issues before processing."),
+    ]
+    if any(f.get("severity") == "critical" for f in findings):
+        lines.append("- Review the critical risk flags with the investment committee.")
+
+    lines += [
+        "",
+        "_Generated from validated pipeline facts without the language model "
+        "(fallback mode — the LLM was unavailable)._",
+    ]
+    return "\n".join(lines)

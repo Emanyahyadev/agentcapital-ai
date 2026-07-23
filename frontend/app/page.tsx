@@ -55,13 +55,21 @@ export default function Home() {
   }, [refreshRuns]);
 
   useEffect(() => {
-    refreshDetail();
-    const t = setInterval(() => {
-      if (detail && TERMINAL.has(detail.status) && detail.run_id === selectedId) return;
-      refreshDetail();
-    }, 2500);
-    return () => clearInterval(t);
-  }, [refreshDetail, selectedId, detail]);
+    if (!selectedId) return;
+    let cancelled = false;
+    const tick = async () => {
+      const d = await api<RunDetail>(`/runs/${selectedId}`).catch(() => null);
+      if (cancelled || !d) return;
+      setDetail(d);
+      if (TERMINAL.has(d.status)) clearInterval(t); // stop once the run is done
+    };
+    tick();
+    const t = setInterval(tick, 2500);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [selectedId]);
 
   async function startRun(storage_path: string) {
     setStarting(storage_path);
