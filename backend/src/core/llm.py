@@ -41,6 +41,28 @@ def _record(message) -> None:
         record_tokens(usage.get("input_tokens"), usage.get("output_tokens"))
 
 
+def content_to_text(content) -> str:
+    """Flatten an LLM message's content to plain text.
+
+    Newer (thinking-capable) Gemini models return content as a list of typed
+    blocks — text, plus reasoning/signature blocks — instead of a bare string.
+    Join the text blocks and drop the rest, so downstream always gets clean
+    markdown rather than a stringified list of dicts."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and block.get("type") in (None, "text"):
+                text = block.get("text")
+                if text:
+                    parts.append(text)
+        return "\n".join(parts)
+    return str(content)
+
+
 def _with_fallback(call, lite: bool):
     """Run `call(lite)`; on a rate-limit error from the primary model, retry
     once on Flash-Lite (separate quota). Re-raise anything else."""
@@ -74,6 +96,6 @@ def invoke_text(messages: list, lite: bool = False) -> str:
     def call(use_lite: bool) -> str:
         response = chat_model(lite=use_lite).invoke(messages)
         _record(response)
-        return response.content if isinstance(response.content, str) else str(response.content)
+        return content_to_text(response.content)
 
     return _with_fallback(call, lite)
