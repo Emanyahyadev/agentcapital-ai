@@ -15,7 +15,9 @@ __pycache__/
 node_modules/
 frontend/.next/
 frontend/out/
-.vercel
+.vercel/
+frontend/.vercel/
+frontend/.env.local
 
 # Generated artifacts
 backend/data/generated_pdfs/

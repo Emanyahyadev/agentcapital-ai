@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import { useEffect, useState } from "react";
 import { api, RunDetail } from "@/lib/api";
 import AgentDrawer from "@/components/AgentDrawer";
 import AgentFlow from "@/components/AgentFlow";
 import { currentStage } from "@/lib/pipeline";
 
-/** Human-in-the-loop approval card; renders nothing unless a run is parked
- *  at a gate. */
+/** Human-in-the-loop approval gate card */
 function GatePanel({
   run,
   onChanged,
@@ -38,55 +36,51 @@ function GatePanel({
   }
 
   return (
-    <div className="card gate">
-      <h2>⏸ Human approval required — {gate.gate.replace("_", " ")}</h2>
-      <p className="reason">{gate.reason ?? gate.question}</p>
+    <div className="gate-card warning">
+      <div className="gate-header">
+        <span className="gate-icon">⏸</span>
+        <h2>Human Approval Required — {gate.gate.replace("_", " ")}</h2>
+      </div>
+      <p className="gate-reason">{gate.reason ?? gate.question}</p>
 
       {gate.gate === "entity_gate" &&
         (gate.candidates ?? []).map((c) => (
           <div
             key={c.entity_id}
-            className={`candidate ${selectedCand === c.entity_id ? "selected" : ""}`}
+            className={`candidate-tile ${selectedCand === c.entity_id ? "selected" : ""}`}
             onClick={() => setSelectedCand(c.entity_id)}
           >
             <input type="radio" readOnly checked={selectedCand === c.entity_id} />
-            <span>
-              {c.name} <span className="muted">({c.kind})</span>
-            </span>
-            <span className="conf">
-              {c.method} · {(c.confidence * 100).toFixed(0)}%
-            </span>
+            <span className="c-name">{c.name} <span className="muted">({c.kind})</span></span>
+            <span className="c-conf">{c.method} · {(c.confidence * 100).toFixed(0)}%</span>
           </div>
         ))}
 
       {gate.gate === "exception_gate" &&
         (gate.issues ?? []).map((issue, i) => (
-          <div className="issue" key={i}>
+          <div className="issue-chip" key={i}>
             <span className="code">{issue.code}</span>
             {issue.message}
           </div>
         ))}
 
-      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+      <div className="gate-actions">
         <button
-          className="btn approve"
+          className="btn-ent approve"
           disabled={deciding || (gate.gate === "entity_gate" && !selectedCand)}
           onClick={() => decide("approve")}
         >
-          {gate.gate === "entity_gate" ? "Approve selection" : "Override & continue"}
+          {gate.gate === "entity_gate" ? "Approve Selection" : "Override & Continue"}
         </button>
-        <button className="btn danger" disabled={deciding} onClick={() => decide("reject")}>
-          Reject
+        <button className="btn-ent danger" disabled={deciding} onClick={() => decide("reject")}>
+          Reject Notice
         </button>
       </div>
     </div>
   );
 }
 
-/** The whole multi-agent execution view in one place: the real LangGraph
- *  topology and the live per-agent timeline side by side (two views of one
- *  run, synced by selection), the human gate when parked, and the per-agent
- *  inspector. */
+/** Multi-Agent Execution Cockpit Pipeline View (GitHub Actions Style) */
 export function ExecutionPanel({
   run,
   onChanged,
@@ -96,153 +90,41 @@ export function ExecutionPanel({
 }) {
   const [picked, setPicked] = useState<string | null>(null);
   const runId = run?.run_id;
-  useEffect(() => setPicked(null), [runId]); // reset selection when run changes
+  useEffect(() => setPicked(null), [runId]);
   const inspecting = picked ?? currentStage(run);
 
   return (
-    <>
-      {/* Approval is the priority action — surfaced above the chart. */}
+    <div className="execution-cockpit-wrapper">
       <GatePanel run={run} onChanged={onChanged} />
 
-      {/* DAG-view layout: the live flowchart on the left, the selected
-          node's detail on the right — one topology, one live status. */}
-      <div className="grid2">
-        <div className="card">
-          <h2>
-            Agent activity
+      <div className="cockpit-grid">
+        {/* Left: GitHub Actions inspired workflow pipeline */}
+        <div className="ent-card">
+          <div className="ent-card-header">
+            <h2>Multi-Agent Workflow Pipeline</h2>
             {run ? (
-              <>
-                <span className="hint">live · updates every second · click a node</span>
-                <span className={`chip ${run.status}`} style={{ marginLeft: "auto" }}>
-                  {run.status.replace("_", " ")}
-                </span>
-              </>
+              <span className={`chip ${run.status}`}>
+                {run.status.replace("_", " ")}
+              </span>
             ) : (
-              <span className="hint">process a notice to watch the agents work</span>
+              <span className="subtle-badge">Select a notice to run</span>
             )}
-          </h2>
-          <AgentFlow run={run} selected={inspecting} onSelect={setPicked} />
+          </div>
+
+          <div className="pipeline-nodes-flow">
+            <AgentFlow run={run} selected={inspecting} onSelect={setPicked} />
+          </div>
+
           {run?.error && (
-            <div className="error-box" style={{ marginTop: 14 }}>
-              <b>{run.error.agent ?? "error"}:</b> {run.error.message}
+            <div className="error-banner">
+              <strong>{run.error.agent ?? "Error"}:</strong> {run.error.message}
             </div>
           )}
         </div>
 
+        {/* Right: Agent Inspector Drawer */}
         <AgentDrawer run={run} stageKey={inspecting} />
       </div>
-    </>
-  );
-}
-
-/** Briefing with download/print actions; audit trail tucked behind a
- *  disclosure — it's forensic detail, not the headline. */
-export function BriefingPanel({
-  run,
-  auditOpen = false,
-}: {
-  run: RunDetail | null;
-  auditOpen?: boolean;
-}) {
-  const reportRef = useRef<HTMLDivElement>(null);
-  if (!run || (!run.report && run.timeline.length === 0)) {
-    return (
-      <div className="card">
-        <h2>Intelligence briefing</h2>
-        <div className="empty">
-          Process a notice from the inbox — the briefing appears here once the
-          pipeline completes.
-        </div>
-      </div>
-    );
-  }
-
-  function downloadMarkdown() {
-    if (!run || !run.report) return;
-    const blob = new Blob([run.report.markdown], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `agentcapital-briefing-${run.run_id.slice(0, 8)}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function printReport() {
-    const node = reportRef.current;
-    if (!node || !run) return;
-    const w = window.open("", "_blank", "width=820,height=940");
-    if (!w) return;
-    w.document.write(`<!doctype html><html><head><title>AgentCapital AI — Intelligence Briefing</title>
-<style>
-  body { font-family: Georgia, "Times New Roman", serif; max-width: 700px;
-         margin: 48px auto; padding: 0 28px; color: #201d1a; line-height: 1.65; font-size: 14px; }
-  h1, h2, h3 { font-family: ui-sans-serif, system-ui, sans-serif; margin: 18px 0 8px; }
-  h1 { font-size: 20px; } h2 { font-size: 16px; } h3 { font-size: 14px; }
-  table { border-collapse: collapse; } th, td { border: 1px solid #bbb; padding: 4px 10px; }
-  ul, ol { padding-left: 22px; }
-  .footer { margin-top: 36px; color: #8a857e; font-size: 11px;
-            border-top: 1px solid #ddd; padding-top: 10px; }
-</style></head><body>${node.innerHTML}
-<div class="footer">Generated by AgentCapital AI · run ${run.run_id} · ${new Date().toLocaleString()}</div>
-</body></html>`);
-    w.document.close();
-    w.focus();
-    w.print();
-  }
-
-  return (
-    <div className="card">
-      <h2>
-        Intelligence briefing
-        {run.report && (
-          <span className="report-actions">
-            <button className="btn secondary small" onClick={downloadMarkdown}>
-              ↓ Download .md
-            </button>
-            <button className="btn secondary small" onClick={printReport}>
-              Print / PDF
-            </button>
-          </span>
-        )}
-      </h2>
-
-      {run.report ? (
-        <>
-          <div className="report" ref={reportRef}>
-            <ReactMarkdown>{run.report.markdown}</ReactMarkdown>
-          </div>
-          <p className="muted" style={{ marginTop: 10 }}>
-            {run.report.citations.length} citation(s) · grounded in validated facts
-          </p>
-        </>
-      ) : (
-        <div className="empty">
-          {run.status === "running" || run.status === "awaiting_approval"
-            ? "Generated after the pipeline completes…"
-            : "No report for this run."}
-        </div>
-      )}
-
-      <details className="audit" open={auditOpen}>
-        <summary>Audit trail · {run.timeline.length} event(s)</summary>
-        <ul className="timeline">
-          {run.timeline.map((t, i) => (
-            <li key={i}>
-              <span className="ts">{new Date(t.ts).toLocaleTimeString()}</span>
-              <span className={`agent ${t.level}`}>{t.agent}</span>
-              <span className={t.level}>
-                {t.event}
-                {Object.keys(t.payload ?? {}).length > 0 && (
-                  <span className="payload">
-                    {" "}· {JSON.stringify(t.payload).slice(0, 110)}
-                  </span>
-                )}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </details>
     </div>
   );
 }

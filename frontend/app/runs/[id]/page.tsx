@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { api, RunDetail } from "@/lib/api";
-import { BriefingPanel, ExecutionPanel } from "@/components/RunConsole";
+import ExecutiveReportView from "@/components/ExecutiveReportView";
+import { ExecutionPanel } from "@/components/RunConsole";
 
 const TERMINAL = new Set(["completed", "failed", "rejected"]);
 
@@ -35,17 +36,17 @@ export default function RunPage() {
   }, [refresh]);
 
   return (
-    <>
+    <div style={{ paddingTop: 16 }}>
       <p style={{ marginBottom: 14 }}>
-        <Link href="/" style={{ color: "var(--muted)" }}>← back to console</Link>
+        <Link href="/" style={{ color: "var(--secondary)", fontWeight: 600 }}>← Back to Executive Cockpit</Link>
       </p>
-      {err && <div className="error-box" style={{ marginBottom: 18 }}>{err}</div>}
+      {err && <div className="error-banner" style={{ marginBottom: 18 }}>{err}</div>}
 
-      <div className="section">Multi-agent execution</div>
       <ExecutionPanel run={run} onChanged={refresh} />
 
-      <div className="section">Intelligence</div>
-      <BriefingPanel run={run} auditOpen />
-    </>
+      <div style={{ marginTop: 32 }}>
+        <ExecutiveReportView run={run} />
+      </div>
+    </div>
   );
 }

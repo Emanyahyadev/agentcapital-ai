@@ -2,6 +2,8 @@
 
 ### A Production-Grade Multi-Agent Financial Intelligence Platform
 
+🌐 **Live Hosted Platform**: [https://agentcapital-ai.vercel.app](https://agentcapital-ai.vercel.app)
+
 Autonomous capital-call processing for family offices: LangGraph orchestration
 with Postgres checkpointing, human-in-the-loop gates, contract-validated agent
 boundaries, hybrid RAG, and an adversarial eval suite that gates CI.
@@ -113,5 +115,5 @@ backend/src/api/          FastAPI surface
 backend/evals/            adversarial dataset + runner (CI-gating)
 backend/tests/            unit + graph-mechanics tests (incl. crash-resume)
 frontend/                 Next.js dashboard (runs, gates, reports, ask)
-docs/                     architecture, failure modes, application answers
+docs/                     architecture, failure modes
 ```

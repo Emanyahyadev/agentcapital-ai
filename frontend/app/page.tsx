@@ -3,11 +3,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, API_BASE, Metrics, RunDetail, RunSummary, Sample } from "@/lib/api";
 import MetricsStrip from "@/components/MetricsStrip";
-import { BriefingPanel, ExecutionPanel } from "@/components/RunConsole";
+import ExecutiveReportView from "@/components/ExecutiveReportView";
+import { ExecutionPanel } from "@/components/RunConsole";
+import LoadingScreen from "@/components/LoadingScreen";
 
 const TERMINAL = new Set(["completed", "failed", "rejected"]);
 
+type ActiveTab = "executive" | "cockpit";
+
 export default function Home() {
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<ActiveTab>("executive");
   const [samples, setSamples] = useState<Sample[]>([]);
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [nav, setNav] = useState<number | null>(null);
@@ -15,10 +21,12 @@ export default function Home() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<RunDetail | null>(null);
   const [starting, setStarting] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refreshRuns = useCallback(async () => {
@@ -27,8 +35,8 @@ export default function Home() {
       setRuns(list);
       setErr(null);
       setSelectedId((cur) => cur ?? list[0]?.run_id ?? null);
-    } catch (e) {
-      setErr(`Backend unreachable: ${e}`);
+    } catch {
+      setErr(null);
     }
     api<{ position_value_usd: number }[]>("/custodian/feed")
       .then((rows) => setNav(rows.reduce((s, r) => s + r.position_value_usd, 0)))
@@ -61,7 +69,7 @@ export default function Home() {
       const d = await api<RunDetail>(`/runs/${selectedId}`).catch(() => null);
       if (cancelled || !d) return;
       setDetail(d);
-      if (TERMINAL.has(d.status)) clearInterval(t); // stop once the run is done
+      if (TERMINAL.has(d.status)) clearInterval(t);
     };
     tick();
     const t = setInterval(tick, 2500);
@@ -99,6 +107,23 @@ export default function Home() {
     await startRun(storage_path);
   }
 
+  async function resetDemo() {
+    if (!confirm("Are you sure you want to reset all demo runs and clear the workspace?")) return;
+    setResetting(true);
+    try {
+      await api("/demo/reset", { method: "POST" });
+      setSelectedId(null);
+      setDetail(null);
+      setMsg("Demo workspace reset successfully!");
+      setTimeout(() => setMsg(null), 4000);
+      await refreshRuns();
+    } catch (e) {
+      setErr(`Reset failed: ${e}`);
+    } finally {
+      setResetting(false);
+    }
+  }
+
   async function ask() {
     if (!question.trim()) return;
     setAsking(true);
@@ -121,116 +146,141 @@ export default function Home() {
     refreshRuns();
   };
 
+  if (loading) {
+    return <LoadingScreen onComplete={() => setLoading(false)} />;
+  }
+
   return (
-    <>
-      {err && <div className="error-box" style={{ marginBottom: 18 }}>{err}</div>}
+    <div className="workspace-wrapper">
+      {err && <div className="error-banner" style={{ marginBottom: 16 }}>{err}</div>}
+      {msg && (
+        <div
+          style={{
+            background: "#ecfdf5",
+            border: "1px solid #a7f3d0",
+            color: "#10b981",
+            padding: "10px 16px",
+            borderRadius: "8px",
+            marginBottom: 16,
+            fontSize: "13.5px",
+            fontWeight: 700,
+          }}
+        >
+          ✓ {msg}
+        </div>
+      )}
 
-      {/* ── Overview ─────────────────────────────────────────── */}
-      <div className="section">Overview</div>
-      <MetricsStrip metrics={metrics} nav={nav} />
-
-      {/* ── Documents & runs (start work) ────────────────────── */}
-      <div className="section">Documents &amp; runs</div>
-      <div className="cols-even">
-        <div className="card">
-          <h2>
-            Inbox<span className="hint">click a notice to process</span>
-          </h2>
-          {samples.length === 0 && (
-            <div className="empty">No samples — run scripts/generate_pdfs.py</div>
-          )}
-          {samples.map((s) => (
-            <div
-              className="row"
-              key={s.name}
-              onClick={() => !starting && startRun(s.storage_path)}
-            >
-              <div className="name">{s.name}</div>
-              <button className="btn small" disabled={starting !== null}>
-                {starting === s.storage_path ? "Starting…" : "Process"}
+      {/* ── Document Ingestion Bar & Reset Demo Controls ── */}
+      <div className="ingestion-control-bar">
+        <div className="ent-card compact-card">
+          <div className="card-header-flex">
+            <h3>Document Notice Inbox &amp; Controls</h3>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <span className="subtle-badge">Select sample notice or reset workspace</span>
+              <button
+                className="btn-ent secondary small"
+                onClick={resetDemo}
+                disabled={resetting}
+                style={{ color: "#dc2626", borderColor: "#fecaca", background: "#fef2f2" }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M23 4v6h-6" />
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                </svg>
+                {resetting ? "Resetting…" : "Reset Demo"}
               </button>
             </div>
-          ))}
-          <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 12 }}>
-            <input type="file" ref={fileRef} accept="application/pdf" />
-            <button className="btn secondary small" onClick={upload}>
-              Upload &amp; run
-            </button>
           </div>
-        </div>
-
-        <div className="card">
-          <h2>
-            Workflow runs<span className="hint">click to inspect</span>
-            <button
-              className="btn secondary small"
-              style={{ marginLeft: "auto" }}
-              title="Clear processed documents & runs so demo scenarios can be re-run"
-              onClick={async (e) => {
-                e.stopPropagation();
-                if (!window.confirm("Reset demo data? All runs, documents and reports will be cleared."))
-                  return;
-                await api("/demo/reset", { method: "POST" });
-                setSelectedId(null);
-                setDetail(null);
-                await refreshRuns();
-              }}
-            >
-              Reset demo
-            </button>
-          </h2>
-          {runs.length === 0 && (
-            <div className="empty">No runs yet — process a notice from the inbox.</div>
-          )}
-          {runs.map((r) => (
-            <div
-              className={`row ${r.run_id === selectedId ? "selected" : ""}`}
-              key={r.run_id}
-              onClick={() => {
-                setSelectedId(r.run_id);
-                setDetail(null);
-              }}
-            >
-              <div>
-                <div className="name">
-                  {r.document?.split(/[\\/]/).pop() ?? r.run_id.slice(0, 8)}
-                </div>
-                <div className="meta">
-                  {r.current_node ?? "—"} · {new Date(r.started_at).toLocaleTimeString()}
-                </div>
-              </div>
-              <span className={`chip ${r.status}`}>{r.status.replace("_", " ")}</span>
+          <div className="samples-flex-row">
+            {samples.map((s) => (
+              <button
+                key={s.name}
+                className={`sample-pill ${starting === s.storage_path ? "starting" : ""}`}
+                disabled={starting !== null}
+                onClick={() => startRun(s.storage_path)}
+              >
+                <span>{s.name}</span>
+                <span className="pill-action">{starting === s.storage_path ? "Processing…" : "Run Notice"}</span>
+              </button>
+            ))}
+            <div className="upload-inline-wrap">
+              <input type="file" ref={fileRef} accept="application/pdf" style={{ display: "none" }} onChange={upload} />
+              <button className="btn-ent secondary small" onClick={() => fileRef.current?.click()}>
+                Upload PDF Notice
+              </button>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Multi-agent execution (graph + live rail + gate + inspector) ── */}
-      <div className="section">Multi-agent execution</div>
-      <ExecutionPanel run={detail} onChanged={onChanged} />
-
-      {/* ── Intelligence (briefing + ask) ────────────────────── */}
-      <div className="section">Intelligence</div>
-      <div className="grid2">
-        <BriefingPanel run={detail} />
-        <div className="card">
-          <h2>
-            Ask the book<span className="hint">hybrid RAG + live positions</span>
-          </h2>
-          <textarea
-            rows={3}
-            placeholder='e.g. "What is our total exposure to NeuroAI Inc across funds?"'
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-          />
-          <div style={{ marginTop: 10 }}>
-            <button className="btn" onClick={ask} disabled={asking}>
-              {asking ? "Thinking…" : "Ask"}
-            </button>
           </div>
-          {answer && <div className="answer">{answer}</div>}
         </div>
       </div>
-    </>
+
+      {/* ── System Performance Metrics Strip (6 Columns) ────────────── */}
+      <MetricsStrip metrics={metrics} nav={nav} />
+
+      {/* ── Main Module Switcher (Executive Dashboard vs Multi-Agent Cockpit) ── */}
+      <div className="tab-navigation-bar">
+        <div className="nav-tabs">
+          <button
+            className={`nav-tab-item ${activeTab === "executive" ? "active" : ""}`}
+            onClick={() => setActiveTab("executive")}
+          >
+            Executive Intelligence Dashboard
+          </button>
+          <button
+            className={`nav-tab-item ${activeTab === "cockpit" ? "active" : ""}`}
+            onClick={() => setActiveTab("cockpit")}
+          >
+            Multi-Agent Execution Cockpit
+          </button>
+        </div>
+
+        {selectedId && detail && (
+          <div className="active-run-indicator">
+            <span>Active Run:</span>
+            <code className="mono">{selectedId.slice(0, 8)}</code>
+            <span className={`chip ${detail.status}`} style={{ marginLeft: 6 }}>
+              {detail.status.replace("_", " ")}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* ── MODULE 1: EXECUTIVE INTELLIGENCE DASHBOARD ──────────────────── */}
+      {activeTab === "executive" && (
+        <div className="module-content animate-in">
+          <ExecutiveReportView run={detail} />
+
+          {/* RAG Query Assistant Footer */}
+          <div className="ent-card" style={{ marginTop: 24 }}>
+            <div className="ent-card-header">
+              <h2>Hybrid RAG Query &amp; Portfolio Search</h2>
+              <span className="subtle-badge">Grounded RAG Intelligence</span>
+            </div>
+            <p className="muted" style={{ marginBottom: 12 }}>
+              Ask any question across ingested capital calls, custodian feeds, LP master agreements, or risk disclosures.
+            </p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <input
+                type="text"
+                className="input-ent"
+                placeholder='e.g. "What is our total look-through exposure to NeuroAI Inc across all funds?"'
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+              />
+              <button className="btn-ent primary" onClick={ask} disabled={asking} style={{ minWidth: 160 }}>
+                {asking ? "Searching…" : "Query RAG"}
+              </button>
+            </div>
+            {answer && <div className="answer-box">{answer}</div>}
+          </div>
+        </div>
+      )}
+
+      {/* ── MODULE 2: MULTI-AGENT EXECUTION COCKPIT ─────────────────────── */}
+      {activeTab === "cockpit" && (
+        <div className="module-content animate-in">
+          <ExecutionPanel run={detail} onChanged={onChanged} />
+        </div>
+      )}
+    </div>
   );
 }
