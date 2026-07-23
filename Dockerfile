@@ -1,4 +1,4 @@
-# Polaris API container — used for Hugging Face Spaces (free tier) and any
+# AgentCapital AI API container — used for Hugging Face Spaces (free tier) and any
 # other Docker host. HF runs containers as uid 1000 with a read-only HOME,
 # so the writable data dir is prepared at build time.
 

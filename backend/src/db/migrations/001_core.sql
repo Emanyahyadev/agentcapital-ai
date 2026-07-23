@@ -1,4 +1,4 @@
--- Polaris core schema: entities, documents, transactions, positions,
+-- AgentCapital AI core schema: entities, documents, transactions, positions,
 -- custodian feed (mock), look-through holdings, workflow runs, audit log.
 
 create table if not exists entities (

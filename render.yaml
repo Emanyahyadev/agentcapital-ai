@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: polaris-api
+    name: agentcapital-api
     runtime: python
     plan: free
     rootDir: backend

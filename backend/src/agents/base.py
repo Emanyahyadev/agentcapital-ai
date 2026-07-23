@@ -25,7 +25,7 @@ from pydantic import BaseModel, ValidationError
 
 from src.config.settings import Settings, get_settings
 from src.core.contracts import AgentError
-from src.core.state import PolarisState
+from src.core.state import AgentState
 from src.core.telemetry import collected_tokens, reset_tokens
 from src.db.client import audit
 from src.observability.logger import get_logger
@@ -131,10 +131,10 @@ class BaseAgent(ABC):
         return self._breakers[self.name]
 
     @abstractmethod
-    def execute(self, state: PolarisState) -> dict[str, Any]:
+    def execute(self, state: AgentState) -> dict[str, Any]:
         """Do the work; return a partial state update."""
 
-    def __call__(self, state: PolarisState) -> dict[str, Any]:
+    def __call__(self, state: AgentState) -> dict[str, Any]:
         if not self.breaker.allow():
             self.log.warning("circuit_open_fail_fast")
             return self._error_update("transient", "circuit breaker open — failing fast", 0)

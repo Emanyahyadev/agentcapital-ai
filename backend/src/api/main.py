@@ -1,4 +1,4 @@
-"""Polaris API: thin HTTP surface over the orchestrator.
+"""AgentCapital AI API: thin HTTP surface over the orchestrator.
 
 Runs execute in background tasks; the graph parks at human gates via the
 Postgres checkpointer, so an approval arriving hours later (or after a
@@ -27,7 +27,7 @@ from src.observability.logger import bind_run_context, configure_logging, get_lo
 configure_logging()
 log = get_logger(component="api")
 
-app = FastAPI(title="Polaris", version="0.1.0")
+app = FastAPI(title="AgentCapital AI", version="0.1.0")
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
 )

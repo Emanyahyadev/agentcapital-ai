@@ -13,7 +13,7 @@ from typing import Any
 
 from src.agents.base import BaseAgent
 from src.core.contracts import GuardVerdict
-from src.core.state import PolarisState
+from src.core.state import AgentState
 from src.db.client import audit
 
 MAX_DOC_CHARS = 50_000
@@ -56,7 +56,7 @@ class InputGuardAgent(BaseAgent):
     output_key = "guard_verdict"
     output_model = GuardVerdict
 
-    def execute(self, state: PolarisState) -> dict[str, Any]:
+    def execute(self, state: AgentState) -> dict[str, Any]:
         verdict = sanitize(state["raw_text"])
         audit(state.get("run_id"), self.name, "input_screened",
               level="info" if verdict.safe else "warning",

@@ -8,7 +8,7 @@ from typing import Any
 
 from src.agents.base import BaseAgent, PermanentFailure
 from src.core.contracts import PortfolioSnapshot, PositionLine
-from src.core.state import PolarisState
+from src.core.state import AgentState
 from src.db.client import audit, db_conn
 
 
@@ -17,7 +17,7 @@ class PortfolioAnalystAgent(BaseAgent):
     output_key = "portfolio"
     output_model = PortfolioSnapshot
 
-    def execute(self, state: PolarisState) -> dict[str, Any]:
+    def execute(self, state: AgentState) -> dict[str, Any]:
         with db_conn() as conn:
             rows = conn.execute(
                 """

@@ -9,7 +9,7 @@ from typing import Any
 
 from src.agents.base import BaseAgent
 from src.core.contracts import RiskFinding
-from src.core.state import PolarisState
+from src.core.state import AgentState
 from src.db.client import audit, db_conn
 
 
@@ -34,7 +34,7 @@ def concentration_findings(
 class RiskMonitorAgent(BaseAgent):
     name = "risk_monitor"
 
-    def execute(self, state: PolarisState) -> dict[str, Any]:
+    def execute(self, state: AgentState) -> dict[str, Any]:
         limit_pct = self.settings.concentration_limit_pct * 100
 
         with db_conn() as conn:

@@ -33,7 +33,7 @@ from src.agents.portfolio_analyst import PortfolioAnalystAgent
 from src.agents.report_generator import ReportGeneratorAgent
 from src.agents.risk_monitor import RiskMonitorAgent
 from src.config.settings import get_settings
-from src.core.state import PolarisState
+from src.core.state import AgentState
 from src.db.client import audit, db_conn
 from src.guardrails.input_guard import InputGuardAgent
 from src.observability.logger import get_logger
@@ -64,7 +64,7 @@ def mark_run(run_id: str | None, status: str, current_node: str | None = None,
 # --- human gates -----------------------------------------------------------
 
 
-def entity_gate(state: PolarisState) -> dict[str, Any]:
+def entity_gate(state: AgentState) -> dict[str, Any]:
     """Ambiguous resolution: a human picks the destination entity."""
     resolution = state.get("resolution") or {}
     mark_run(state.get("run_id"), "awaiting_approval", "entity_gate")
@@ -85,7 +85,7 @@ def entity_gate(state: PolarisState) -> dict[str, Any]:
     }
 
 
-def exception_gate(state: PolarisState) -> dict[str, Any]:
+def exception_gate(state: AgentState) -> dict[str, Any]:
     """Critical validation issues: a human overrides or rejects the run."""
     validation = state.get("validation") or {}
     mark_run(state.get("run_id"), "awaiting_approval", "exception_gate")
@@ -103,7 +103,7 @@ def exception_gate(state: PolarisState) -> dict[str, Any]:
 # --- terminal nodes --------------------------------------------------------
 
 
-def error_handler(state: PolarisState) -> dict[str, Any]:
+def error_handler(state: AgentState) -> dict[str, Any]:
     errors = state.get("errors") or []
     last = errors[-1] if errors else {}
     log.error("run_failed", failed_agent=last.get("agent"), message=last.get("message"))
@@ -113,7 +113,7 @@ def error_handler(state: PolarisState) -> dict[str, Any]:
     return {}
 
 
-def finalize_reject(state: PolarisState) -> dict[str, Any]:
+def finalize_reject(state: AgentState) -> dict[str, Any]:
     audit(state.get("run_id"), "finalize", "run_rejected", level="warning")
     mark_run(state.get("run_id"), "rejected")
     if get_settings().database_url and state.get("document_id"):
@@ -126,7 +126,7 @@ def finalize_reject(state: PolarisState) -> dict[str, Any]:
     return {}
 
 
-def complete(state: PolarisState) -> dict[str, Any]:
+def complete(state: AgentState) -> dict[str, Any]:
     audit(state.get("run_id"), "finalize", "run_completed")
     mark_run(state.get("run_id"), "completed", "complete")
     return {}
@@ -135,36 +135,36 @@ def complete(state: PolarisState) -> dict[str, Any]:
 # --- routers ---------------------------------------------------------------
 
 
-def _errored(state: PolarisState) -> bool:
+def _errored(state: AgentState) -> bool:
     return bool(state.get("errors"))
 
 
 def then(next_node: str):
     """Router factory: proceed unless the previous node recorded an error."""
-    def route(state: PolarisState) -> str:
+    def route(state: AgentState) -> str:
         return "error_handler" if _errored(state) else next_node
     route.__name__ = f"route_to_{next_node}"
     return route
 
 
-def after_resolve(state: PolarisState) -> Literal["entity_gate", "validate", "error_handler"]:
+def after_resolve(state: AgentState) -> Literal["entity_gate", "validate", "error_handler"]:
     if _errored(state):
         return "error_handler"
     return "entity_gate" if state.get("needs_human") else "validate"
 
 
-def after_entity_gate(state: PolarisState) -> Literal["validate", "finalize_reject"]:
+def after_entity_gate(state: AgentState) -> Literal["validate", "finalize_reject"]:
     return "validate" if state.get("human_decision") == "approved" else "finalize_reject"
 
 
-def after_validate(state: PolarisState) -> Literal["analyze", "exception_gate", "error_handler"]:
+def after_validate(state: AgentState) -> Literal["analyze", "exception_gate", "error_handler"]:
     if _errored(state):
         return "error_handler"
     passed = (state.get("validation") or {}).get("passed", False)
     return "analyze" if passed else "exception_gate"
 
 
-def after_exception_gate(state: PolarisState) -> Literal["analyze", "finalize_reject"]:
+def after_exception_gate(state: AgentState) -> Literal["analyze", "finalize_reject"]:
     return "analyze" if state.get("human_decision") == "approved" else "finalize_reject"
 
 
@@ -174,7 +174,7 @@ def after_exception_gate(state: PolarisState) -> Literal["analyze", "finalize_re
 def build_graph(checkpointer=None):
     """Compile the workflow. Pass a PostgresSaver in production; defaults to
     an in-memory saver so tests exercise identical graph mechanics."""
-    builder = StateGraph(PolarisState)
+    builder = StateGraph(AgentState)
 
     builder.add_node("ingest", DocumentIngestAgent())
     builder.add_node("input_guard", InputGuardAgent())

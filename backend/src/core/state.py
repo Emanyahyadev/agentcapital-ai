@@ -11,7 +11,7 @@ import operator
 from typing import Annotated, Any, TypedDict
 
 
-class PolarisState(TypedDict, total=False):
+class AgentState(TypedDict, total=False):
     # identity
     run_id: str
     document_id: str

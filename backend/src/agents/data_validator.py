@@ -13,7 +13,7 @@ from typing import Any
 
 from src.agents.base import BaseAgent
 from src.core.contracts import ValidationIssue, ValidationResult
-from src.core.state import PolarisState
+from src.core.state import AgentState
 from src.db.client import audit, db_conn
 
 
@@ -70,7 +70,7 @@ class DataValidatorAgent(BaseAgent):
     output_key = "validation"
     output_model = ValidationResult
 
-    def execute(self, state: PolarisState) -> dict[str, Any]:
+    def execute(self, state: AgentState) -> dict[str, Any]:
         parsed = state["parsed"]
         entity_id = state.get("selected_entity_id")
         issues: list[ValidationIssue] = []
@@ -180,7 +180,7 @@ class DataValidatorAgent(BaseAgent):
             )]
         return []
 
-    def _top_confidence(self, state: PolarisState) -> float | None:
+    def _top_confidence(self, state: AgentState) -> float | None:
         candidates = (state.get("resolution") or {}).get("candidates") or []
         selected = state.get("selected_entity_id")
         for cand in candidates:
@@ -188,7 +188,7 @@ class DataValidatorAgent(BaseAgent):
                 return cand["confidence"]
         return None
 
-    def _finish(self, state: PolarisState, issues: list[ValidationIssue]) -> dict[str, Any]:
+    def _finish(self, state: AgentState, issues: list[ValidationIssue]) -> dict[str, Any]:
         result = ValidationResult(
             issues=issues,
             passed=not any(i.severity == "critical" for i in issues),

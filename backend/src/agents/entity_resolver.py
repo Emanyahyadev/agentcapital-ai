@@ -24,7 +24,7 @@ from rapidfuzz import fuzz
 from src.agents.base import BaseAgent
 from src.config.settings import Settings
 from src.core.contracts import EntityCandidate, ResolutionResult
-from src.core.state import PolarisState
+from src.core.state import AgentState
 from src.db.client import audit, db_conn
 
 AMBIGUITY_MARGIN = 0.05
@@ -117,7 +117,7 @@ class EntityResolverAgent(BaseAgent):
     output_key = "resolution"
     output_model = ResolutionResult
 
-    def execute(self, state: PolarisState) -> dict[str, Any]:
+    def execute(self, state: AgentState) -> dict[str, Any]:
         parsed = state["parsed"]
         target = parsed["fund_name_raw"]
         mentions = parsed.get("sub_fund_mentions", [])

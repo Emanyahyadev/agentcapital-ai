@@ -9,7 +9,7 @@ from typing import Any
 from src.agents.base import BaseAgent
 from src.core.contracts import Report
 from src.core.llm import invoke_text
-from src.core.state import PolarisState
+from src.core.state import AgentState
 from src.db.client import audit, db_conn
 
 REPORT_SYSTEM_PROMPT = """You write concise intelligence briefings for a family \
@@ -32,7 +32,7 @@ class ReportGeneratorAgent(BaseAgent):
     output_key = "report"
     output_model = Report
 
-    def execute(self, state: PolarisState) -> dict[str, Any]:
+    def execute(self, state: AgentState) -> dict[str, Any]:
         context_chunks = self._retrieve_context(state)
         facts = {
             "notice": state.get("parsed"),
@@ -91,7 +91,7 @@ class ReportGeneratorAgent(BaseAgent):
                        "citations": len(report.citations), "mode": mode})
         return {"report": report}
 
-    def _retrieve_context(self, state: PolarisState) -> list[dict[str, Any]]:
+    def _retrieve_context(self, state: AgentState) -> list[dict[str, Any]]:
         """Pull supporting excerpts from previously ingested filings via the
         hybrid retriever. Soft dependency: reporting proceeds without RAG
         rather than failing the run."""
@@ -115,7 +115,7 @@ def _money(value: Any) -> str:
         return "n/a"
 
 
-def deterministic_report(state: PolarisState) -> str:
+def deterministic_report(state: AgentState) -> str:
     """Compose the briefing from validated pipeline facts, no LLM. Used as a
     fallback when the model is unavailable so a report is always produced."""
     notice = state.get("parsed") or {}

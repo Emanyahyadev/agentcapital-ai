@@ -16,7 +16,7 @@ import pymupdf
 from src.agents.base import BaseAgent, ContractViolation, PermanentFailure
 from src.core.contracts import ParsedNotice
 from src.core.llm import extract_structured
-from src.core.state import PolarisState
+from src.core.state import AgentState
 from src.db.client import audit, db_conn
 
 
@@ -39,7 +39,7 @@ class DocumentIngestAgent(BaseAgent):
 
     name = "document_ingest"
 
-    def execute(self, state: PolarisState) -> dict[str, Any]:
+    def execute(self, state: AgentState) -> dict[str, Any]:
         storage_path = state["storage_path"]
         pdf_bytes = _load_pdf_bytes(storage_path)
         sha256 = hashlib.sha256(pdf_bytes).hexdigest()
@@ -93,7 +93,7 @@ class NoticeParserAgent(BaseAgent):
     output_key = "parsed"
     output_model = ParsedNotice
 
-    def execute(self, state: PolarisState) -> dict[str, Any]:
+    def execute(self, state: AgentState) -> dict[str, Any]:
         # Only the guard's sanitized text may reach the LLM.
         sanitized = state["guard_verdict"]["sanitized_text"]
         parsed = extract_structured(ParsedNotice, PARSE_SYSTEM_PROMPT, sanitized)

@@ -1,9 +1,10 @@
-# ✦ Polaris
+# ◆ AgentCapital AI
 
-**Autonomous capital-call processing for family offices** — a production-style
-multi-agent system: LangGraph orchestration with Postgres checkpointing,
-human-in-the-loop gates, contract-validated agent boundaries, hybrid RAG, and
-an adversarial eval suite that gates CI.
+### A Production-Grade Multi-Agent Financial Intelligence Platform
+
+Autonomous capital-call processing for family offices: LangGraph orchestration
+with Postgres checkpointing, human-in-the-loop gates, contract-validated agent
+boundaries, hybrid RAG, and an adversarial eval suite that gates CI.
 
 ## The problem
 
@@ -13,7 +14,7 @@ real money gets lost: calls booked to the wrong sub-fund, distributions
 attributed to the wrong entity, missed deadlines with penalty interest, and
 hidden concentration — five funds each quietly holding 2–3% of the same company.
 
-Polaris automates the pipeline and — more importantly — **refuses to guess**:
+AgentCapital AI automates the pipeline and — more importantly — **refuses to guess**:
 ambiguity and unreconciled conflicts park the run at a human gate instead of
 corrupting the books.
 

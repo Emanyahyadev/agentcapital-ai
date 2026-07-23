@@ -3,9 +3,9 @@ import Link from "next/link";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Polaris — Family Office Intelligence",
+  title: "AgentCapital AI — Multi-Agent Financial Intelligence",
   description:
-    "Autonomous capital-call processing: multi-agent ingestion, reconciliation, and risk monitoring",
+    "Production-grade multi-agent financial intelligence: document ingestion, reconciliation, risk monitoring, and human-in-the-loop review",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -13,9 +13,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <div className="topbar">
-          <Link href="/" className="brand">✦ Polaris</Link>
+          <Link href="/" className="brand">◆ AgentCapital&nbsp;AI</Link>
           <span className="sub">
-            autonomous capital-call processing · The Whitmore Family Office
+            production-grade multi-agent financial intelligence · The Whitmore Family Office
           </span>
         </div>
         <div className="container">{children}</div>

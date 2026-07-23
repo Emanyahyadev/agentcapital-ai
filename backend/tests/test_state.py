@@ -3,11 +3,11 @@
 import operator
 from typing import get_type_hints
 
-from src.core.state import PolarisState
+from src.core.state import AgentState
 
 
 def test_errors_reducer_is_additive():
-    hints = get_type_hints(PolarisState, include_extras=True)
+    hints = get_type_hints(AgentState, include_extras=True)
     reducer = hints["errors"].__metadata__[0]
     assert reducer is operator.add
     merged = reducer([{"agent": "a"}], [{"agent": "b"}])
