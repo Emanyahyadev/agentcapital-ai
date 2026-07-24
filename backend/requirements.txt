@@ -39,7 +39,7 @@ distro==1.9.0
     #   google-genai
     #   langsmith
 fastapi==0.139.2
-    # via polaris
+    # via agentcapital-ai
 filetype==1.2.0
     # via langchain-google-genai
 google-auth==2.56.2
@@ -47,7 +47,7 @@ google-auth==2.56.2
 google-genai==2.13.0
     # via
     #   langchain-google-genai
-    #   polaris
+    #   agentcapital-ai
 h11==0.16.0
     # via
     #   httpcore
@@ -65,7 +65,7 @@ httpx==0.28.1
     #   google-genai
     #   langgraph-sdk
     #   langsmith
-    #   polaris
+    #   agentcapital-ai
     #   postgrest
     #   storage3
     #   supabase
@@ -91,22 +91,22 @@ langchain-core==1.5.0
     #   langgraph-checkpoint
     #   langgraph-prebuilt
     #   langgraph-sdk
-    #   polaris
+    #   agentcapital-ai
 langchain-google-genai==4.3.1
-    # via polaris
+    # via agentcapital-ai
 langchain-protocol==0.0.18
     # via
     #   langchain-core
     #   langgraph-sdk
 langgraph==1.2.9
-    # via polaris
+    # via agentcapital-ai
 langgraph-checkpoint==4.1.1
     # via
     #   langgraph
     #   langgraph-checkpoint-postgres
     #   langgraph-prebuilt
 langgraph-checkpoint-postgres==3.1.0
-    # via polaris
+    # via agentcapital-ai
 langgraph-prebuilt==1.1.0
     # via langgraph
 langgraph-sdk==0.4.2
@@ -128,7 +128,7 @@ packaging==26.2
     #   langchain-core
     #   langsmith
 pgvector==0.5.0
-    # via polaris
+    # via agentcapital-ai
 pillow==12.3.0
     # via reportlab
 postgrest==2.31.0
@@ -138,7 +138,7 @@ propcache==0.5.2
 psycopg==3.3.4
     # via
     #   langgraph-checkpoint-postgres
-    #   polaris
+    #   agentcapital-ai
 psycopg-binary==3.3.4 ; implementation_name != 'pypy'
     # via psycopg
 psycopg-pool==3.3.1
@@ -159,7 +159,7 @@ pydantic==2.13.4
     #   langchain-google-genai
     #   langgraph
     #   langsmith
-    #   polaris
+    #   agentcapital-ai
     #   postgrest
     #   pydantic-settings
     #   realtime
@@ -168,27 +168,27 @@ pydantic==2.13.4
 pydantic-core==2.46.4
     # via pydantic
 pydantic-settings==2.14.2
-    # via polaris
+    # via agentcapital-ai
 pyjwt==2.13.0
     # via supabase-auth
 pymupdf==1.28.0
-    # via polaris
+    # via agentcapital-ai
 python-dotenv==1.2.2
     # via
     #   pydantic-settings
     #   uvicorn
 python-multipart==0.0.32
-    # via polaris
+    # via agentcapital-ai
 pyyaml==6.0.3
     # via
     #   langchain-core
     #   uvicorn
 rapidfuzz==3.14.5
-    # via polaris
+    # via agentcapital-ai
 realtime==2.31.0
     # via supabase
 reportlab==5.0.0
-    # via polaris
+    # via agentcapital-ai
 requests==2.34.2
     # via
     #   google-auth
@@ -208,9 +208,9 @@ storage3==2.31.0
 strenum==0.4.15
     # via supabase-functions
 structlog==26.1.0
-    # via polaris
+    # via agentcapital-ai
 supabase==2.31.0
-    # via polaris
+    # via agentcapital-ai
 supabase-auth==2.31.0
     # via supabase
 supabase-functions==2.31.0
@@ -242,7 +242,7 @@ typing-inspection==0.4.2
 tzdata==2026.3 ; sys_platform == 'win32'
     # via psycopg
 upstash-redis==1.7.0
-    # via polaris
+    # via agentcapital-ai
 urllib3==2.7.0
     # via requests
 uuid-utils==0.17.0
@@ -250,7 +250,7 @@ uuid-utils==0.17.0
     #   langchain-core
     #   langsmith
 uvicorn==0.51.0
-    # via polaris
+    # via agentcapital-ai
 uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
     # via uvicorn
 watchfiles==1.2.0

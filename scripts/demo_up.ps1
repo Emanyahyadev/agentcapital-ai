@@ -12,7 +12,7 @@ param([string]$VercelToken = $env:VERCEL_TOKEN)
 $ErrorActionPreference = "Continue"
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $cloudflared = "C:\Program Files (x86)\cloudflared\cloudflared.exe"
-$log = Join-Path $env:TEMP "polaris_tunnel.log"
+$log = Join-Path $env:TEMP "agentcapital_tunnel.log"
 
 Write-Host "[1/4] starting API (detached)..."
 $apiUp = $false
@@ -67,5 +67,5 @@ Pop-Location
 
 Write-Host ""
 Write-Host "demo ready:"
-Write-Host "  dashboard : https://polaris-omega-taupe.vercel.app"
+Write-Host "  dashboard : https://agentcapital-ai.vercel.app"
 Write-Host "  api       : $url"
